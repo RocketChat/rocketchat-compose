@@ -16,7 +16,7 @@ services:
     expose:
       - 9090
     ports:
-      - ${PROMETHEUS_LISTEN_ADDR:-127.0.0.1}:${PROMETHEUS_PORT:-9090}:9090
+      - ${PROMETHEUS_LISTEN_ADDR:-0.0.0.0}:${PROMETHEUS_PORT:-9090}:9090
     volumes:
       - prometheus_tsdb:/prometheus:rw
       - ./files/prometheus:/etc/prometheus:Z
