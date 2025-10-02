@@ -44,7 +44,7 @@ services:
     #   start_period: 30s
     command: --http_port 8222
   nats-exporter:
-    image: docker.io/bitnami/nats-exporter:${NATS_EXPORTER_VERSION:-0.17.3}
+    image: docker.io/natsio/prometheus-nats-exporter:${NATS_EXPORTER_VERSION:-0.17.3}
     depends_on:
       - nats
     expose:
@@ -54,7 +54,7 @@ services:
       - -varz
       - "http://nats:8222"
   mongodb:
-    image: docker.io/bitnami/mongodb:${MONGODB_VERSION:-6.0}
+    image: docker.io/bitnamilegacy/mongodb:${MONGODB_VERSION:-6.0}
     restart: always
     volumes:
       - ${MONGODB_HOST_PATH:-mongodb_data}:/bitnami/mongodb:rw
