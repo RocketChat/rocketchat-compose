@@ -24,19 +24,15 @@ services:
       - -varz
       - "http://nats:8222"
   mongodb:
-    image: docker.io/bitnamilegacy/mongodb:${MONGODB_VERSION:-6.0}
+    image: docker.io/mongo:${MONGODB_VERSION:-6.0}
     restart: always
     volumes:
-      - ${MONGODB_HOST_PATH:-mongodb_data}:/bitnami/mongodb:rw
+      - ${MONGODB_HOST_PATH:-oficial_mongodb_data}:/data/db:rw
+    command: ["--replSet", "${MONGODB_REPLICA_SET_NAME:-rs0}", "--bind_ip_all", "--port", "${MONGODB_PORT_NUMBER:-27017}"]
     environment:
-      MONGODB_REPLICA_SET_MODE: ${MONGODB_REPLICA_SET_MODE:-primary}
-      MONGODB_REPLICA_SET_NAME: ${MONGODB_REPLICA_SET_NAME:-rs0}
-      MONGODB_PORT_NUMBER: ${MONGODB_PORT_NUMBER:-27017}
-      MONGODB_INITIAL_PRIMARY_HOST: ${MONGODB_INITIAL_PRIMARY_HOST:-mongodb}
-      MONGODB_INITIAL_PRIMARY_PORT_NUMBER: ${MONGODB_INITIAL_PRIMARY_PORT_NUMBER:-27017}
-      MONGODB_ADVERTISED_HOSTNAME: ${MONGODB_ADVERTISED_HOSTNAME:-mongodb}
-      MONGODB_ENABLE_JOURNAL: ${MONGODB_ENABLE_JOURNAL:-true}
-      ALLOW_EMPTY_PASSWORD: ${ALLOW_EMPTY_PASSWORD:-yes}
+      MONGO_INITDB_DATABASE: ${MONGO_INITDB_DATABASE:-admin}
+      ACK_MONGODB_BITNAMI_MIGRATION: ${ACK_MONGODB_BITNAMI_MIGRATION:?Please refer to to https://github.com/RocketChat/rocketchat-compose?tab=readme-ov-file#advanced-migrating-to-oficial-mongodb}
+
     # healthcheck:
     #   test: ["CMD", "mongosh", "--host", "mongodb", "--port", "${MONGODB_PORT_NUMBER:-27017}", "--eval", "db.adminCommand('ping')"]
     #   interval: 30s
@@ -47,6 +43,43 @@ services:
       - ${MONGODB_PORT_NUMBER:-27017}
     ports:
       - "${MONGODB_BIND_IP:-127.0.0.1}:${MONGODB_PORT_NUMBER:-27017}:${MONGODB_PORT_NUMBER:-27017}"
+  mongodb-init:
+    image: docker.io/mongo:${MONGODB_VERSION:-6.0}
+    restart: on-failure
+    command:
+      - bash
+      - -c
+      - |
+        # $$ is to use the bash $ or this will be interpreted by docker/podman and use variables from env
+        # for the MONGODB_PORT_NUMBER we actually want to use the one from the .env
+        echo "Waiting for MongoDB to be ready"
+        until mongosh --host mongodb --port ${MONGODB_PORT_NUMBER:-27017} --eval "db.adminCommand('ping')" >/dev/null 2>&1; do
+          echo "Waiting for MongoDB to be ready..."
+          sleep 5
+        done
+        echo "MongoDB ready"
+
+        REPLICA_STATUS="$(mongosh --host mongodb --port ${MONGODB_PORT_NUMBER:-27017} --eval "rs.status().ok" 2>/dev/null || echo "")"
+        if [ -z "$$REPLICA_STATUS" ]; then
+          echo "Initializing the replica set..."
+          mongosh --host mongodb --port ${MONGODB_PORT_NUMBER:-27017} --eval "rs.initiate({_id: '${MONGODB_REPLICA_SET_NAME:-rs0}', members: [{ _id: 0, host: 'mongodb:${MONGODB_PORT_NUMBER:-27017}' }]})"
+        else
+          echo "Replica set already initialized."
+          exit 0
+        fi
+
+        sleep 1
+
+        # Check if the replicaset is initialized
+        REPLICA_STATUS=$(mongosh --host mongodb --port ${MONGODB_PORT_NUMBER:-27017} --eval "rs.status().ok" 2>/dev/null || echo "")
+        if [ -z "$$REPLICA_STATUS" ]; then
+          echo "Replica set not initialized."
+        else
+          echo "Replica set already initialized."
+        fi
+    depends_on:
+      - mongodb
+
   mongodb-exporter:
     image: docker.io/percona/mongodb_exporter:${MONGODB_EXPORTER_VERSION:-0.44.0}
     depends_on:
@@ -58,4 +91,4 @@ services:
       - --collect-all
       - --compatible-mode
 volumes:
-  mongodb_data: {driver: local}
+  oficial_mongodb_data: {driver: local}
