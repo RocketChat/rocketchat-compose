@@ -19,6 +19,7 @@ You can login to Grafana at: http://grafana.localhost with the default credentia
 
 First, clone this repository:
 
+
 ```bash
 git clone --depth 1 https://github.com/RocketChat/rocketchat-compose.git
 ```
@@ -126,3 +127,73 @@ podman compose \
   -f compose.yml \
   up -d
 ```
+
+---
+
+## Advanced Migrating to Oficial MongoDB
+
+Set `ACK_MONGODB_BITNAMI_MIGRATION=true` in your `.env` just after the backup is finished
+
+If you're updating from older MongoDB (Bitnami) to the official MongoDB container:
+
+### Step 1: Backup Your Data
+1. Find your MongoDB container:
+   ```bash
+   docker ps
+   # or if you are using podman
+   podman ps
+   ```
+2. Create a backup inside the container:
+   ```bash
+   docker exec -it <YOUR_MONGO_CONTAINER> mongodump -o /tmp/backup
+   # or if you are using podman
+   podman exec -it <YOUR_MONGO_CONTAINER> mongodump -o /tmp/backup
+   ```
+3. Copy the backup to your computer:
+   ```bash
+   docker cp <YOUR_MONGO_CONTAINER>:/tmp/backup ./backup
+   # or if you are using podman
+   podman cp <YOUR_MONGO_CONTAINER>:/tmp/backup ./backup
+   ```
+4. Ack the migration process adding `ACK_MONGODB_BITNAMI_MIGRATION=true` to your `.env` file
+
+### Step 2: Update the Setup
+1. Stop all services:
+   ```bash
+   docker compose -f compose.database.yml -f compose.monitoring.yml -f compose.traefik.yml -f compose.yml down
+   # or if you are using podman
+   podman compose -f compose.database.yml -f compose.monitoring.yml -f compose.traefik.yml -f compose.yml down
+   ```
+2. Update setup files:
+   ```bash
+   git pull origin main
+   ```
+
+### Step 3: Restore Data
+1. Start only MongoDB:
+   ```bash
+   docker compose -f compose.database.yml up -d
+   # or if you are using podman
+   podman compose -f compose.database.yml up -d
+   ```
+2. Copy your backup back into MongoDB:
+   ```bash
+   docker cp ./backup <YOUR_MONGO_CONTAINER>:/tmp/backup
+   # or if you are using podman
+   podman cp ./backup <YOUR_MONGO_CONTAINER>:/tmp/backup
+   ```
+3. Restore the backup:
+   ```bash
+   docker exec -it <YOUR_MONGO_CONTAINER> mongorestore /tmp/backup
+   # or if you are using podman
+   podman exec -it <YOUR_MONGO_CONTAINER> mongorestore /tmp/backup
+   ```
+
+### Step 4: Restart Everything
+1. Start all services again:
+   ```bash
+   docker compose -f compose.database.yml -f compose.monitoring.yml -f compose.traefik.yml -f compose.yml up -d
+   # or if you are using podman
+   podman compose -f compose.database.yml -f compose.monitoring.yml -f compose.traefik.yml -f compose.yml up -d
+   ```
+
