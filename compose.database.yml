@@ -31,7 +31,7 @@ services:
     command: ["--replSet", "${MONGODB_REPLICA_SET_NAME:-rs0}", "--bind_ip_all", "--port", "${MONGODB_PORT_NUMBER:-27017}"]
     environment:
       MONGO_INITDB_DATABASE: ${MONGO_INITDB_DATABASE:-admin}
-      ACK_MONGODB_BITNAMI_MIGRATION: ${ACK_MONGODB_BITNAMI_MIGRATION:?Please refer to to https://github.com/RocketChat/rocketchat-compose?tab=readme-ov-file#advanced-migrating-to-oficial-mongodb}
+      ACK_MONGODB_BITNAMI_MIGRATION: ${ACK_MONGODB_BITNAMI_MIGRATION:?Please refer to https://github.com/RocketChat/rocketchat-compose?tab=readme-ov-file#advanced-migrating-to-oficial-mongodb}
 
     # healthcheck:
     #   test: ["CMD", "mongosh", "--host", "mongodb", "--port", "${MONGODB_PORT_NUMBER:-27017}", "--eval", "db.adminCommand('ping')"]
