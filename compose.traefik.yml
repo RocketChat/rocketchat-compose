@@ -2,6 +2,8 @@ services:
   traefik-init:
     image: docker.io/alpine:latest
     entrypoint: sh
+    environment:
+      ROCKETCHAT_BACKEND_SERVERS: ${ROCKETCHAT_BACKEND_SERVERS:-rocketchat:3000}
     command:
       - -c
       - |-
