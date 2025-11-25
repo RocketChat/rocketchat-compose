@@ -48,7 +48,7 @@ services:
     expose:
       - 3000
     ports:
-      - "${BIND_IP:-0.0.0.0}:${GRAFANA_HOST_PORT:-5050}:3000"
+      - "${GRAFANA_BIND_IP:-0.0.0.0}:${GRAFANA_HOST_PORT:-5050}:3000"
     volumes:
       - grafana_data:/var/lib/grafana:Z
       - ./files/grafana/dashboards:/dashboards:Z
