@@ -59,7 +59,7 @@ services:
       - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
       - GF_AUTH_ANONYMOUS_ORG_NAME=Main Org.
       - GF_SERVER_SERVE_FROM_SUB_PATH=true
-      - GF_SERVER_ROOT_URL=http://${GRAFANA_DOMAIN}${GRAFANA_PATH}/
+      - GF_SERVER_ROOT_URL=http://${GRAFANA_DOMAIN}${GRAFANA_PATH:-/grafana}/
 volumes:
   prometheus_tsdb: {driver: local}
   prometheus_config: {driver: local}
