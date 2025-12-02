@@ -126,3 +126,14 @@ podman compose \
   -f compose.yml \
   up -d
 ```
+
+
+---
+
+### Multiple servers
+When running multiple Rocket.Chat servers, you can configure Traefik to discover those servers and include them in load balancing by adding a variable in the `.env` file:
+
+```env
+ROCKETCHAT_BACKEND_SERVERS=rocketchat-1:3000,rocketchat-2:3000,rocketchat-3:3000
+```
+

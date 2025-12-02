@@ -2,6 +2,8 @@ services:
   traefik-init:
     image: docker.io/alpine:latest
     entrypoint: sh
+    environment:
+      ROCKETCHAT_BACKEND_SERVERS: ${ROCKETCHAT_BACKEND_SERVERS:-rocketchat:3000}
     command:
       - -c
       - |-
@@ -9,7 +11,30 @@ services:
         # quote 'eof' to prevent variable expansion
         rm -rf /traefik_config/* || true
         mkdir -p /traefik_config/http /traefik_config/https
-        cat <<'EOF' | tee /traefik_config/http/dynamic.yml
+        # this should be idented so it works inside the heredoc concatenation later
+        cat <<'EOF' > /traefik_config/services.tpl
+          services:
+            grafana:
+              loadBalancer:
+                servers:
+                  - url: "http://grafana:3000"
+            rocketchat:
+              loadBalancer:
+                healthCheck:
+                  path: /health
+                  interval: 10s
+                  timeout: 3s
+                servers:
+        EOF
+
+        echo "ROCKETCHAT_BACKEND_SERVERS $$ROCKETCHAT_BACKEND_SERVERS"
+        # append the server list to the services template
+        for server in $(echo $$ROCKETCHAT_BACKEND_SERVERS | tr "," "\n" | tr -d " "); do
+          echo "          - url: \"http://$$server\"" >> /traefik_config/services.tpl
+        done
+
+
+        cat <<'EOF' > /traefik_config/http/dynamic.yml
         http:
           routers:
             rocketchat:
@@ -27,18 +52,9 @@ services:
                 {{ else }}
                   Host(`{{ env "GRAFANA_DOMAIN" }}`)
                 {{ end }}
-          services:
-            rocketchat:
-              loadBalancer:
-                servers:
-                  - url: "http://rocketchat:3000"
-            grafana:
-              loadBalancer:
-                servers:
-                  - url: "http://grafana:3000"
         EOF
 
-        cat <<'EOF' | tee /traefik_config/https/dynamic.yml
+        cat <<'EOF' > /traefik_config/https/dynamic.yml
         https:
           address: ":443"
           http:
@@ -67,16 +83,13 @@ services:
               service: grafana
               tls:
                 certResolver: le
-          services:
-            rocketchat:
-              loadBalancer:
-                servers:
-                  - url: "http://rocketchat:3000"
-            grafana:
-              loadBalancer:
-                servers:
-                  - url: "http://grafana:3000"
         EOF
+
+        cat /traefik_config/services.tpl >> /traefik_config/http/dynamic.yml
+        cat /traefik_config/services.tpl >> /traefik_config/https/dynamic.yml
+        cat /traefik_config/http/dynamic.yml
+        echo "-------------------------"
+        cat /traefik_config/https/dynamic.yml
 
         echo "files generated, keeping container alive to podman-compose detect it"
         tail -f /dev/null
