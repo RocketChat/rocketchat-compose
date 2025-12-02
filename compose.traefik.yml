@@ -29,7 +29,7 @@ services:
 
         echo "ROCKETCHAT_BACKEND_SERVERS $$ROCKETCHAT_BACKEND_SERVERS"
         # append the server list to the services template
-        for server in $(echo $$ROCKETCHAT_BACKEND_SERVERS | tr "," "\n"); do
+        for server in $(echo $$ROCKETCHAT_BACKEND_SERVERS | tr "," "\n" | tr -d " "); do
           echo "          - url: \"http://$$server\"" >> /traefik_config/services.tpl
         done
 
