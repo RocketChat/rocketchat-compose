@@ -1,0 +1,38 @@
+services:
+  freeswitch:
+    image: docker.io/rocketchat/freeswitch:latest
+    # build: .
+    restart: always
+    environment:
+      EXTERNAL_ADDRESS_FQDN: ${VOIP_DOMAIN:-}
+      FREESWITCH_PASSWORD: ${FREESWITCH_PASSWORD:-}
+      EXTENSION_PASSWORD: ${EXTENSION_PASSWORD:-}
+      EXTENSIONS: ${EXTENSIONS:-}
+      RTP_START_PORT: 20000
+      RTP_END_PORT: 20046
+      DEBUG_MODE: "true"
+      INTERNAL_INBOUND_MEDIA: "relay"
+      INTERNAL_OUTBOUND_TO_INTERNAL_MEDIA: "relay"
+      INTERNAL_OUTBOUND_TO_EXTERNAL_MEDIA: "relay"
+      EXTERNAL_INBOUND_MEDIA: "relay"
+      EXTERNAL_OUTBOUND_TO_INTERNAL_MEDIA: "relay"
+      ACCEPT_EXTERNAL_CALLS: false
+      USE_LEGACY_ARCH: false
+      DRACHTIO_DOMAIN: ${VOIP_DRACHTIO_DOMAIN}
+    expose:
+      - 8021
+      - 5060
+    ports:
+      - 8021:8021
+      - 20000-20046:20000-20046/udp
+
+  drachtio:
+    image: drachtio/drachtio-server:latest
+    restart: always
+    ports:
+      - "9022:9022"
+      - "5060:5060/udp"
+    volumes:
+      # Drachtio params are configured on this file
+      # You must modify it to configure a strong and unique secret string
+      - ./files/drachtio/drachtio.conf.xml:/etc/drachtio.conf.xml
