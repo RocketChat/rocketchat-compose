@@ -145,7 +145,7 @@ There is a quick way for rolling out a VoIP solution using Drachtio and FreeSwit
         -f compose.database.yml \
         -f compose.yml \
         -f compose.voip.yml \
-        -f compose.networ.yml \
+        -f compose.network.yml \
         up -d
 ```
 to start the stack. Once the stack is running, do the necessary VoIP configurations using the static ips for FreeSwitch and Drachtio.
