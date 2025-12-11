@@ -11,7 +11,7 @@ services:
       DEBUG_MODE: "true"
       ACCEPT_EXTERNAL_CALLS: false
       USE_LEGACY_ARCH: false
-      DRACHTIO_DOMAIN: ${VOIP_DRACHTIO_DOMAIN}
+      DRACHTIO_DOMAIN: ${VOIP_DRACHTIO_DOMAIN:-drachtio}
     expose:
       - 5060
     ports:
