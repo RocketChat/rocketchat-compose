@@ -26,7 +26,7 @@ services:
       - -varz
       - "http://nats:8222"
   mongodb-fix-permission-container:
-    image: mongodb/mongodb-community-server:${MONGODB_VERSION:-8.2}-ubi8
+    image: docker.io/mongodb/mongodb-community-server:${MONGODB_VERSION:-8.2}-ubi8
     restart: on-failure
     user: "0"
     volumes:
@@ -41,7 +41,7 @@ services:
         else echo "=====> Nothing to do"; fi;
       '
   mongodb-replicaset-init-container:
-    image: mongodb/mongodb-community-server:${MONGODB_VERSION:-8.2}-ubi8
+    image: docker.io/mongodb/mongodb-community-server:${MONGODB_VERSION:-8.2}-ubi8
     restart: on-failure
     depends_on:
       mongodb:
@@ -61,7 +61,7 @@ services:
       '
         
   mongodb:
-    image: mongodb/mongodb-community-server:${MONGODB_VERSION:-8.2}-ubi8
+    image: docker.io/mongodb/mongodb-community-server:${MONGODB_VERSION:-8.2}-ubi8
     restart: always
     depends_on:
       mongodb-fix-permission-container:
