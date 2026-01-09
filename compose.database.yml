@@ -25,35 +25,64 @@ services:
       - -healthz
       - -varz
       - "http://nats:8222"
-  mongodb:
+  mongodb-fix-permission-container:
     image: mongodb/mongodb-community-server:${MONGODB_VERSION:-8.2}-ubi8
-    restart: always
+    restart: on-failure
+    user: "0"
     volumes:
       - ${MONGODB_HOST_PATH:-mongodb_data}:/data/db:rw
+    entrypoint: |
+      sh -xc '
+        owner="$(stat -c %u /data/db)";
+        # for fresh installs
+        if [ "$$owner" != "1001" ]; then
+          echo "=====> Fixing directory ownership"
+          chown -R 1001 /data/db;
+        else echo "=====> Nothing to do"; fi;
+      '
+  mongodb-replicaset-init-container:
+    image: mongodb/mongodb-community-server:${MONGODB_VERSION:-8.2}-ubi8
+    restart: on-failure
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    user: "0"
     environment:
       MONGODB_REPLICA_SET_NAME: ${MONGODB_REPLICA_SET_NAME:-rs0}
       MONGODB_PORT_NUMBER: ${MONGODB_PORT_NUMBER:-27017}
       MONGODB_INITIAL_PRIMARY_HOST: ${MONGODB_INITIAL_PRIMARY_HOST:-mongodb}
+    volumes:
+      - ${MONGODB_HOST_PATH:-mongodb_data}:/data/db:rw
     entrypoint: |
-      bash -c
-        "mongod --replSet $$MONGODB_REPLICA_SET_NAME --bind_ip_all &
-          sleep 2;
-          until mongosh --eval \"db.adminCommand('ping')\"; do 
-            echo '=====> Waiting for Mongo...';
-            sleep 1;
-          done;
-          echo \"=====> Initiating ReplSet $$MONGODB_REPLICA_SET_NAME at $$MONGODB_INITIAL_PRIMARY_HOST:$$MONGODB_PORT_NUMBER...\";
-          mongosh --eval \"rs.initiate({_id: '$$MONGODB_REPLICA_SET_NAME', members: [{ _id: 0, host: '$$MONGODB_INITIAL_PRIMARY_HOST:$$MONGODB_PORT_NUMBER' }]})\";
-          echo '=====> Initiating ReplSet done...';
-        wait"
-    # healthcheck:
-    #   test: ["CMD", "mongosh", "--host", "mongodb", "--port", "${MONGODB_PORT_NUMBER:-27017}", "--eval", "db.adminCommand('ping')"]
-    #   interval: 30s
-    #   timeout: 30s
-    #   retries: 10
-    #   start_period: 30s
-    expose:
-      - ${MONGODB_PORT_NUMBER:-27017}
+      sh -xc '
+        echo "=====> Initiating ReplSet $$MONGODB_REPLICA_SET_NAME at $$MONGODB_INITIAL_PRIMARY_HOST:$$MONGODB_PORT_NUMBER...";
+        mongosh --eval "rs.initiate({_id: \"$$MONGODB_REPLICA_SET_NAME\", members: [{ _id: 0, host: \"$$MONGODB_INITIAL_PRIMARY_HOST:$$MONGODB_PORT_NUMBER\" }]})" --host mongodb --port $$MONGODB_PORT_NUMBER;
+        echo "=====> Initiating ReplSet done...";
+      '
+        
+  mongodb:
+    image: mongodb/mongodb-community-server:${MONGODB_VERSION:-8.2}-ubi8
+    restart: always
+    depends_on:
+      mongodb-fix-permission-container:
+        condition: service_completed_successfully
+    volumes:
+      - ${MONGODB_HOST_PATH:-mongodb_data}:/data/db:rw
+    user: "1001"
+    environment:
+      MONGODB_REPLICA_SET_NAME: ${MONGODB_REPLICA_SET_NAME:-rs0}
+      MONGODB_PORT_NUMBER: ${MONGODB_PORT_NUMBER:-27017}
+      MONGODB_INITIAL_PRIMARY_HOST: ${MONGODB_INITIAL_PRIMARY_HOST:-mongodb}
+    command:
+    - --replSet
+    - ${MONGODB_REPLICA_SET_NAME:-rs0}
+    - --bind_ip_all
+    healthcheck:
+      test: ["CMD", "mongosh", "--host", "mongodb", "--port", "${MONGODB_PORT_NUMBER:-27017}", "--eval", "db.adminCommand('ping')"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
     ports:
       - "${MONGODB_BIND_IP:-127.0.0.1}:${MONGODB_PORT_NUMBER:-27017}:${MONGODB_PORT_NUMBER:-27017}"
 
