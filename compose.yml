@@ -18,7 +18,7 @@ services:
       TRANSPORTER: "${NATS_URL-monolith+nats://nats:4222}"
       INSTANCE_IP: "${INSTANCE_IP:-}"
     depends_on:
-      mongodb-replicaset-init-container:
+      mongodb-init-container:
         condition: service_completed_successfully
     expose:
       - ${PORT:-3000}
