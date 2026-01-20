@@ -31,22 +31,24 @@ services:
     user: "0"
     volumes:
       - ${MONGODB_HOST_PATH:-mongodb_data}:/data/db:rw
+    environment:
+      MONGODB_USER_ID: ${MONGODB_USER_ID:-1001}
     entrypoint: |
       sh -xc '
         owner="$(stat -c %u /data/db)";
         # for fresh installs
-        if [ "$$owner" != "1001" ]; then
-          echo "=====> Fixing directory ownership"
-          chown -R 1001 /data/db;
+        if [ "$$owner" != "$$MONGODB_USER_ID" ]; then
+          echo "=====> Fixing directory ownership to uid $$MONGODB_USER_ID"
+          chown -R "$$MONGODB_USER_ID" /data/db;
         else echo "=====> Nothing to do"; fi;
       '
   # TODO: add user creation here
   mongodb-init-container:
     image: docker.io/mongodb/mongodb-community-server:${MONGODB_VERSION:-8.2}-ubi8
     restart: on-failure
-    depends_on:
-      mongodb:
-        condition: service_healthy
+    # depends_on:
+    #   mongodb:
+    #     condition: service_healthy
     user: "0"
     environment:
       MONGODB_REPLICA_SET_NAME: ${MONGODB_REPLICA_SET_NAME:-rs0}
@@ -56,6 +58,11 @@ services:
       - ${MONGODB_HOST_PATH:-mongodb_data}:/data/db:rw
     entrypoint: |
       sh -xc '
+        echo "=====> Waiting for MongoDB to be healthy before initiating replica set...";
+        until mongosh "$$MONGODB_URI" --eval "db.adminCommand(\"ping\")" >/dev/null 2>&1; do
+          echo "=====> MongoDB not ready yet, retrying in 5 seconds...";
+          sleep 5;
+        done;
         echo "=====> Initiating ReplSet $$MONGODB_REPLICA_SET_NAME at $$MONGODB_ADVERTISED_HOSTNAME:$$MONGODB_PORT_NUMBER...";
         mongosh "$$MONGODB_URI" --eval "rs.initiate({_id: \"$$MONGODB_REPLICA_SET_NAME\", members: [{ _id: 0, host: \"$$MONGODB_ADVERTISED_HOSTNAME:$$MONGODB_PORT_NUMBER\" }]})";
         echo "=====> Initiating ReplSet done...";
@@ -64,21 +71,34 @@ services:
   mongodb:
     image: docker.io/mongodb/mongodb-community-server:${MONGODB_VERSION:-8.2}-ubi8
     restart: always
-    depends_on:
-      mongodb-fix-permission-container:
-        condition: service_completed_successfully
+    # depends_on:
+    #   mongodb-fix-permission-container:
+    #     condition: service_completed_successfully
     volumes:
       - ${MONGODB_HOST_PATH:-mongodb_data}:/data/db:rw
-    user: "1001"
+    user: "${MONGODB_USER_ID:-1001}"
+    entrypoint:
+      - sh
+      - -ec
+      - |
+        echo "=====> Waiting for /data/db to be owned by uid=$$MONGODB_USER_ID (mongodb user) ...";
+        for i in $(seq 1 60); do
+          owner="$(stat -c %u /data/db 2>/dev/null || true)";
+          if [ "$$owner" = "$$MONGODB_USER_ID" ]; then
+            echo "=====> /data/db ownership OK ($$owner) - starting MongoDB";
+            exec mongod --replSet "$$MONGODB_REPLICA_SET_NAME" --bind_ip_all;
+          fi;
+          echo "=====> /data/db owner is '$$owner' (expected $$MONGODB_USER_ID), retrying in 5 seconds...";
+          sleep 5;
+        done;
+        echo "=====> Giving up waiting for /data/db ownership after 5 minutes";
+        exit 1
     environment:
+      MONGODB_USER_ID: ${MONGODB_USER_ID:-1001}
       MONGODB_REPLICA_SET_NAME: ${MONGODB_REPLICA_SET_NAME:-rs0}
       MONGODB_PORT_NUMBER: ${MONGODB_PORT_NUMBER:-27017}
       MONGODB_ADVERTISED_HOSTNAME: ${MONGODB_ADVERTISED_HOSTNAME:-mongodb}
       ALLOW_EMPTY_PASSWORD: ${ALLOW_EMPTY_PASSWORD:-yes}
-    command:
-    - --replSet
-    - ${MONGODB_REPLICA_SET_NAME:-rs0}
-    - --bind_ip_all
     healthcheck:
       test:
       - CMD
