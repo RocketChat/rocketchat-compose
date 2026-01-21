@@ -1,0 +1,84 @@
+receivers:
+  journald:
+    root_path: /hostfs
+    journalctl_path: /usr/bin/journalctl
+    start_at: end
+    # units: # we have to collect all units to be able to collect the logs from podman too
+    operators:
+      - type: filter
+        expr: "body.CONTAINER_ID == nil"
+      - type: filter
+        expr: 'body.SYSLOG_IDENTIFIER matches "^.+#.+#.+$" ? false : true'
+
+      - id: regex_parser
+        type: regex_parser
+        parse_from: body.SYSLOG_IDENTIFIER
+        parse_to: body
+        regex: "^(?P<compose_project>.+)#(?P<compose_service>.+)#(?P<compose_container_name>.*)$"
+
+      - id: rename-container-name-k8s
+        type: copy
+        from: body.compose_container_name
+        to: resource["container.name"]
+
+      - id: set-node-name
+        type: copy
+        from: body._HOSTNAME
+        to: resource["agent.node"]
+
+      # rename attributes extracted from SYSLOG_IDENTIFIER
+      # our dashboards are target to use with the kubernetes as a base
+      # so we fake some of the values to make dashboards work properly
+      # with docker/podman deployment
+      # fake kubernetes container name
+      - id: rename-container-name
+        type: copy
+        from: body.compose_container_name
+        to: resource["k8s.container.name"]
+      # fake kubernetes pod
+      - id: generate-a-fake-pod-name
+        type: copy
+        from: body.compose_container_name
+        to: resource["k8s.pod.name"]
+      # fake kubernetes deployment name
+      - id: rename-service
+        type: copy
+        from: body.compose_service
+        to: resource["k8s.deployment.name"]
+      # fake kubernetes namespace
+      - id: set-namespace
+        type: copy
+        from: body.compose_project
+        to: resource["k8s.namespace.name"]
+
+      # set
+
+      # discard everything else and keep just the log message
+      - id: move-body-to-log
+        type: move
+        from: body.MESSAGE
+        to: body
+
+processors:
+  resource:
+    attributes:
+      - key: job
+        value: "logs"
+        action: upsert
+      - action: upsert
+        key: agent.name
+        value: otel
+      - action: upsert
+        key: cluster.name
+        value: docker-compose
+
+exporters:
+  otlphttp:
+    endpoint: "http://loki:3100/otlp"
+
+service:
+  pipelines:
+    logs:
+      receivers: [journald]
+      processors: [resource]
+      exporters: [otlphttp]
