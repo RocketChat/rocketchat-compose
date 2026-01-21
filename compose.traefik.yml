@@ -97,6 +97,11 @@ services:
     volumes:
       - traefik_config:/traefik_config:z
     restart: "no"
+    logging:
+      driver: "journald"
+      options:
+        tag: "${COMPOSE_PROJECT_NAME:-rocketchat}#traefik-init#{{.Name}}"
+
   traefik:
     image: docker.io/traefik:${TRAEFIK_RELEASE:-v3.4}
     restart: always
@@ -144,6 +149,11 @@ services:
       #   timeout: 30s
       #   retries: 5
       #   start_period: 30s
+    logging:
+      driver: "journald"
+      options:
+        tag: "${COMPOSE_PROJECT_NAME:-rocketchat}#traefik#{{.Name}}"
+
 volumes:
   # this is for ssl shennanigans, users usually won't need to bother with it
   traefik_ssl: {driver: local}

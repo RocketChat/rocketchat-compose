@@ -26,6 +26,10 @@ services:
       #   timeout: 10s
       #   retries: 10
       #   start_period: 10s
+    logging:
+      driver: "journald"
+      options:
+        tag: "${COMPOSE_PROJECT_NAME:-rocketchat}#prometheus#{{.Name}}"
   node-exporter:
     image: docker.io/prom/node-exporter:${NODE_EXPORTER_VERSION:-v1.9.1}
     restart: always
