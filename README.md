@@ -1,6 +1,12 @@
 
 # Rocket.Chat Compose Files
 
+## Important Note!
+
+If you are using the built in MongoDB and are still using the Bitnami MongoDB Images please see this important forum post on how to update:
+
+https://forums.rocket.chat/t/action-required-docker-compose-moving-from-bitnami-to-official-mongodb-image/22693
+
 ## TLDR;
 
 1. Clone: `git clone --depth 1 https://github.com/RocketChat/rocketchat-compose.git`
