@@ -17,6 +17,24 @@ services:
       MONGO_URL: ${MONGO_URL:-mongodb://mongodb:27017/rocketchat?replicaSet=rs0}
       TRANSPORTER: "${NATS_URL-monolith+nats://nats:4222}"
       INSTANCE_IP: "${INSTANCE_IP:-}"
+    # depends_on:
+    #   mongodb-init-container:
+    #     condition: service_completed_successfully
+    command:
+      - bash
+      - -c
+      - |
+        echo "=====> Waiting for MongoDB (mongodb:27017) to be ready before starting Rocket.Chat...";
+        for i in $(seq 1 60); do
+          if nc -z mongodb 27017 >/dev/null 2>&1; then
+            echo "=====> MongoDB is up - starting Rocket.Chat";
+            exec node main.js;
+          fi;
+          echo "=====> MongoDB not ready yet, retrying in 5 seconds...";
+          sleep 5;
+        done;
+        echo "=====> Giving up waiting for MongoDB after 5 minutes";
+        exit 1
     expose:
       - ${PORT:-3000}
       - ${METRICS_PORT:-9458}
