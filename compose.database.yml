@@ -15,6 +15,11 @@ services:
     command: --http_port 8222
     ports:
       - "${NATS_BIND_IP:-127.0.0.1}:${NATS_PORT_NUMBER:-4222}:4222"
+    logging:
+      driver: "journald"
+      options:
+        tag: "${COMPOSE_PROJECT_NAME:-rocketchat}#nats#{{.Name}}"
+
   nats-exporter:
     image: docker.io/natsio/prometheus-nats-exporter:${NATS_EXPORTER_VERSION:-0.17.3}
     depends_on:
@@ -25,6 +30,11 @@ services:
       - -healthz
       - -varz
       - "http://nats:8222"
+    logging:
+      driver: "journald"
+      options:
+        tag: "${COMPOSE_PROJECT_NAME:-rocketchat}#nats-exporter#{{.Name}}"
+
   mongodb:
     image: docker.io/bitnamilegacy/mongodb:${MONGODB_VERSION:-6.0}
     restart: always
@@ -49,6 +59,11 @@ services:
       - ${MONGODB_PORT_NUMBER:-27017}
     ports:
       - "${MONGODB_BIND_IP:-127.0.0.1}:${MONGODB_PORT_NUMBER:-27017}:${MONGODB_PORT_NUMBER:-27017}"
+    logging:
+      driver: "journald"
+      options:
+        tag: "${COMPOSE_PROJECT_NAME:-rocketchat}#mongodb#{{.Name}}"
+
   mongodb-exporter:
     image: docker.io/percona/mongodb_exporter:${MONGODB_EXPORTER_VERSION:-0.44.0}
     depends_on:
@@ -59,5 +74,10 @@ services:
       - --mongodb.uri=${MONGODB_URI:-mongodb://mongodb:27017}
       - --collect-all
       - --compatible-mode
+    logging:
+      driver: "journald"
+      options:
+        tag: "${COMPOSE_PROJECT_NAME:-rocketchat}#mongodb-exporter#{{.Name}}"
+
 volumes:
   mongodb_data: {driver: local}
