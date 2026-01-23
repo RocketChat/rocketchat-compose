@@ -15,6 +15,11 @@ services:
     command: --http_port 8222
     ports:
       - "${NATS_BIND_IP:-127.0.0.1}:${NATS_PORT_NUMBER:-4222}:4222"
+    logging:
+      driver: "journald"
+      options:
+        tag: "${COMPOSE_PROJECT_NAME:-rocketchat}#nats#{{.Name}}"
+
   nats-exporter:
     image: docker.io/natsio/prometheus-nats-exporter:${NATS_EXPORTER_VERSION:-0.17.3}
     depends_on:
@@ -25,6 +30,11 @@ services:
       - -healthz
       - -varz
       - "http://nats:8222"
+    logging:
+      driver: "journald"
+      options:
+        tag: "${COMPOSE_PROJECT_NAME:-rocketchat}#nats-exporter#{{.Name}}"
+      
   mongodb-fix-permission-container:
     image: docker.io/mongodb/mongodb-community-server:${MONGODB_VERSION:-8.2}-ubi8
     restart: on-failure
@@ -33,6 +43,10 @@ services:
       - ${MONGODB_HOST_PATH:-mongodb_data}:/data/db:rw
     environment:
       MONGODB_USER_ID: ${MONGODB_USER_ID:-1001}
+    logging:
+      driver: "journald"
+      options:
+        tag: "${COMPOSE_PROJECT_NAME:-rocketchat}#mongodb-fix-permission-container#{{.Name}}"
     entrypoint: |
       sh -xc '
         owner="$(stat -c %u /data/db)";
@@ -56,6 +70,10 @@ services:
       MONGODB_URI: ${MONGODB_URI:-mongodb://mongodb:27017/?directConnection=true}
     volumes:
       - ${MONGODB_HOST_PATH:-mongodb_data}:/data/db:rw
+    logging:
+      driver: "journald"
+      options:
+        tag: "${COMPOSE_PROJECT_NAME:-rocketchat}#mongodb-init-container#{{.Name}}"
     entrypoint: |
       sh -xc '
         echo "=====> Waiting for MongoDB to be healthy before initiating replica set...";
@@ -99,6 +117,10 @@ services:
       MONGODB_PORT_NUMBER: ${MONGODB_PORT_NUMBER:-27017}
       MONGODB_ADVERTISED_HOSTNAME: ${MONGODB_ADVERTISED_HOSTNAME:-mongodb}
       ALLOW_EMPTY_PASSWORD: ${ALLOW_EMPTY_PASSWORD:-yes}
+    logging:
+      driver: "journald"
+      options:
+        tag: "${COMPOSE_PROJECT_NAME:-rocketchat}#mongodb#{{.Name}}"
     healthcheck:
       test:
       - CMD
@@ -123,5 +145,10 @@ services:
       - --mongodb.uri=${MONGODB_URI:-mongodb://mongodb:27017}
       - --collect-all
       - --compatible-mode
+    logging:
+      driver: "journald"
+      options:
+        tag: "${COMPOSE_PROJECT_NAME:-rocketchat}#mongodb-exporter#{{.Name}}"
+
 volumes:
   mongodb_data: {driver: local}

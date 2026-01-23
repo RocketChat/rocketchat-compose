@@ -1,0 +1,62 @@
+auth_enabled: false
+
+server:
+  http_listen_port: 3100
+
+common:
+  replication_factor: 1
+  path_prefix: /data/loki
+  storage:
+    filesystem:
+      chunks_directory: /data/loki/chunks
+      rules_directory: /data/loki/rules
+  ring:
+    kvstore:
+      store: inmemory
+
+schema_config:
+  configs:
+    - from: 2020-10-24
+      store: tsdb
+      object_store: filesystem
+      schema: v13
+      index:
+        prefix: index_
+        period: 24h
+compactor:
+  retention_enabled: true
+  compaction_interval: 10m
+  retention_delete_delay: 2h
+  retention_delete_worker_count: 100
+  delete_request_store: filesystem
+pattern_ingester:
+  enabled: true
+limits_config:
+  allow_structured_metadata: true
+  volume_enabled: true
+  retention_period: 15d
+
+ruler:
+  enable_api: true
+
+distributor:
+  otlp_config:
+    default_resource_attributes_as_index_labels:
+      # basic information
+      - job
+      - agent.name
+      - agent.node
+      # Cluster information
+      - cluster.name
+      # basic pod information
+      - k8s.namespace.name
+      - k8s.pod.name # k8s_pod
+      - k8s.container.name # k8s_container
+      - container.name
+      # Deployment information
+      - k8s.replicaset.name
+      - k8s.deployment.name
+      - k8s.statefulset.name
+      - k8s.daemonset.name
+      - k8s.cronjob.name
+      - k8s.job.name
