@@ -17,6 +17,24 @@ services:
       MONGO_URL: ${MONGO_URL:-mongodb://mongodb:27017/rocketchat?replicaSet=rs0}
       TRANSPORTER: "${NATS_URL-monolith+nats://nats:4222}"
       INSTANCE_IP: "${INSTANCE_IP:-}"
+    # depends_on:
+    #   mongodb-init-container:
+    #     condition: service_completed_successfully
+    command:
+      - bash
+      - -c
+      - |
+        echo "=====> Waiting for MongoDB (mongodb:27017) to be ready before starting Rocket.Chat...";
+        for i in $(seq 1 60); do
+          if nc -z mongodb 27017 >/dev/null 2>&1; then
+            echo "=====> MongoDB is up - starting Rocket.Chat";
+            exec node main.js;
+          fi;
+          echo "=====> MongoDB not ready yet, retrying in 5 seconds...";
+          sleep 5;
+        done;
+        echo "=====> Giving up waiting for MongoDB after 5 minutes";
+        exit 1
     expose:
       - ${PORT:-3000}
       - ${METRICS_PORT:-9458}
@@ -67,34 +85,94 @@ services:
       driver: "journald"
       options:
         tag: "${COMPOSE_PROJECT_NAME:-rocketchat}#nats-exporter#{{.Name}}"
-  mongodb:
-    image: docker.io/bitnamilegacy/mongodb:${MONGODB_VERSION:-6.0}
-    restart: always
+  mongodb-fix-permission-container:
+    image: docker.io/mongodb/mongodb-community-server:${MONGODB_VERSION:-8.2}-ubi8
+    restart: on-failure
+    user: "0"
     volumes:
-      - ${MONGODB_HOST_PATH:-mongodb_data}:/bitnami/mongodb:rw
+      - ${MONGODB_HOST_PATH:-mongodb_data}:/data/db:rw
     environment:
-      MONGODB_REPLICA_SET_MODE: ${MONGODB_REPLICA_SET_MODE:-primary}
+      MONGODB_USER_ID: ${MONGODB_USER_ID:-1001}
+    logging:
+      driver: "journald"
+      options:
+        tag: "${COMPOSE_PROJECT_NAME:-rocketchat}#mongodb-fix-permission-container#{{.Name}}"
+    entrypoint: |
+      sh -xc '
+        owner="$(stat -c %u /data/db)";
+        # for fresh installs
+        if [ "$$owner" != "$$MONGODB_USER_ID" ]; then
+          echo "=====> Fixing directory ownership to uid $$MONGODB_USER_ID"
+          chown -R "$$MONGODB_USER_ID" /data/db;
+        else echo "=====> Nothing to do"; fi;
+      '
+  # TODO: add user creation here
+  mongodb-init-container:
+    image: docker.io/mongodb/mongodb-community-server:${MONGODB_VERSION:-8.2}-ubi8
+    restart: on-failure
+    # depends_on:
+    #   mongodb:
+    #     condition: service_healthy
+    user: "0"
+    environment:
       MONGODB_REPLICA_SET_NAME: ${MONGODB_REPLICA_SET_NAME:-rs0}
       MONGODB_PORT_NUMBER: ${MONGODB_PORT_NUMBER:-27017}
-      MONGODB_INITIAL_PRIMARY_HOST: ${MONGODB_INITIAL_PRIMARY_HOST:-mongodb}
-      MONGODB_INITIAL_PRIMARY_PORT_NUMBER: ${MONGODB_INITIAL_PRIMARY_PORT_NUMBER:-27017}
+      MONGODB_URI: ${MONGODB_URI:-mongodb://mongodb:27017/?directConnection=true}
+    volumes:
+      - ${MONGODB_HOST_PATH:-mongodb_data}:/data/db:rw
+    logging:
+      driver: "journald"
+      options:
+        tag: "${COMPOSE_PROJECT_NAME:-rocketchat}#mongodb-init-container#{{.Name}}"
+    entrypoint: "sh -xc '\n  echo \"=====> Waiting for MongoDB to be healthy before initiating replica set...\";\n  until mongosh \"$$MONGODB_URI\" --eval \"db.adminCommand(\\\"ping\\\")\" >/dev/null 2>&1; do\n    echo \"=====> MongoDB not ready yet, retrying in 5 seconds...\";\n    sleep 5;\n  done;\n  echo \"=====> Initiating ReplSet $$MONGODB_REPLICA_SET_NAME at $$MONGODB_ADVERTISED_HOSTNAME:$$MONGODB_PORT_NUMBER...\";\n  mongosh \"$$MONGODB_URI\" --eval \"rs.initiate({_id: \\\"$$MONGODB_REPLICA_SET_NAME\\\", members: [{ _id: 0, host: \\\"$$MONGODB_ADVERTISED_HOSTNAME:$$MONGODB_PORT_NUMBER\\\" }]})\";\n  echo \"=====> Initiating ReplSet done...\";\n'\n  \n"
+  mongodb:
+    image: docker.io/mongodb/mongodb-community-server:${MONGODB_VERSION:-8.2}-ubi8
+    restart: always
+    # depends_on:
+    #   mongodb-fix-permission-container:
+    #     condition: service_completed_successfully
+    volumes:
+      - ${MONGODB_HOST_PATH:-mongodb_data}:/data/db:rw
+    user: "${MONGODB_USER_ID:-1001}"
+    entrypoint:
+      - sh
+      - -ec
+      - |
+        echo "=====> Waiting for /data/db to be owned by uid=$$MONGODB_USER_ID (mongodb user) ...";
+        for i in $(seq 1 60); do
+          owner="$(stat -c %u /data/db 2>/dev/null || true)";
+          if [ "$$owner" = "$$MONGODB_USER_ID" ]; then
+            echo "=====> /data/db ownership OK ($$owner) - starting MongoDB";
+            exec mongod --replSet "$$MONGODB_REPLICA_SET_NAME" --bind_ip_all;
+          fi;
+          echo "=====> /data/db owner is '$$owner' (expected $$MONGODB_USER_ID), retrying in 5 seconds...";
+          sleep 5;
+        done;
+        echo "=====> Giving up waiting for /data/db ownership after 5 minutes";
+        exit 1
+    environment:
+      MONGODB_USER_ID: ${MONGODB_USER_ID:-1001}
+      MONGODB_REPLICA_SET_NAME: ${MONGODB_REPLICA_SET_NAME:-rs0}
+      MONGODB_PORT_NUMBER: ${MONGODB_PORT_NUMBER:-27017}
       MONGODB_ADVERTISED_HOSTNAME: ${MONGODB_ADVERTISED_HOSTNAME:-mongodb}
-      MONGODB_ENABLE_JOURNAL: ${MONGODB_ENABLE_JOURNAL:-true}
       ALLOW_EMPTY_PASSWORD: ${ALLOW_EMPTY_PASSWORD:-yes}
-    # healthcheck:
-    #   test: ["CMD", "mongosh", "--host", "mongodb", "--port", "${MONGODB_PORT_NUMBER:-27017}", "--eval", "db.adminCommand('ping')"]
-    #   interval: 30s
-    #   timeout: 30s
-    #   retries: 10
-    #   start_period: 30s
-    expose:
-      - ${MONGODB_PORT_NUMBER:-27017}
-    ports:
-      - "${MONGODB_BIND_IP:-127.0.0.1}:${MONGODB_PORT_NUMBER:-27017}:${MONGODB_PORT_NUMBER:-27017}"
     logging:
       driver: "journald"
       options:
         tag: "${COMPOSE_PROJECT_NAME:-rocketchat}#mongodb#{{.Name}}"
+    healthcheck:
+      test:
+        - CMD
+        - mongosh
+        - "mongodb://${MONGODB_ADVERTISED_HOSTNAME:-mongodb}:${MONGODB_PORT_NUMBER:-27017}/?directConnection=true"
+        - --eval
+        - "\"db.adminCommand('ping')\""
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+    ports:
+      - "${MONGODB_BIND_IP:-127.0.0.1}:${MONGODB_PORT_NUMBER:-27017}:${MONGODB_PORT_NUMBER:-27017}"
   mongodb-exporter:
     image: docker.io/percona/mongodb_exporter:${MONGODB_EXPORTER_VERSION:-0.44.0}
     depends_on:
