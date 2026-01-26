@@ -68,6 +68,7 @@ services:
       MONGODB_REPLICA_SET_NAME: ${MONGODB_REPLICA_SET_NAME:-rs0}
       MONGODB_PORT_NUMBER: ${MONGODB_PORT_NUMBER:-27017}
       MONGODB_URI: ${MONGODB_URI:-mongodb://mongodb:27017/?directConnection=true}
+      MONGODB_ADVERTISED_HOSTNAME: ${MONGODB_ADVERTISED_HOSTNAME:-mongodb}
     volumes:
       - ${MONGODB_HOST_PATH:-mongodb_data}:/data/db:rw
     logging:
