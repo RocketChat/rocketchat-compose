@@ -1,6 +1,6 @@
 services:
   rocketchat:
-    image: ${IMAGE:-registry.rocket.chat/rocketchat/rocket.chat}:${RELEASE:-latest}
+    image: ${IMAGE:-registry.rocket.chat/rocketchat/rocket.chat}:${RELEASE:-8.0.1}
     restart: always
     labels:
       prometheus.io/scrape: "true"
