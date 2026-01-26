@@ -1,0 +1,312 @@
+{
+    "__inputs": [
+        {
+            "name": "DS_PROMETHEUS",
+            "label": "Prometheus",
+            "description": "This is the prometheus datasource",
+            "type": "datasource",
+            "pluginId": "prometheus",
+            "pluginName": "Prometheus"
+        },
+        {
+            "name": "DS_LOKI",
+            "label": "Loki",
+            "description": "This is the loki datasource",
+            "type": "datasource",
+            "pluginId": "loki",
+            "pluginName": "Loki"
+        }
+    ],
+    "__elements": {},
+    "__requires": [
+        {
+            "type": "grafana",
+            "id": "grafana",
+            "name": "Grafana",
+            "version": "11.6.1"
+        },
+        {
+            "type": "datasource",
+            "id": "prometheus",
+            "name": "Prometheus",
+            "version": "1.0.0"
+        },
+        {
+            "type": "panel",
+            "id": "timeseries",
+            "name": "Time series",
+            "version": ""
+        }
+    ],
+    "annotations": {
+        "list": [
+            {
+                "builtIn": 1,
+                "datasource": {
+                    "type": "grafana",
+                    "uid": "-- Grafana --"
+                },
+                "enable": true,
+                "hide": true,
+                "iconColor": "rgba(0, 211, 255, 1)",
+                "name": "Annotations & Alerts",
+                "type": "dashboard"
+            }
+        ]
+    },
+    "editable": true,
+    "fiscalYearStartMonth": 0,
+    "graphTooltip": 0,
+    "id": null,
+    "links": [],
+    "panels": [
+        {
+            "datasource": {
+                "type": "loki",
+                "uid": "${DS}"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "palette-classic"
+                    },
+                    "custom": {
+                        "axisBorderShow": false,
+                        "axisCenteredZero": false,
+                        "axisColorMode": "text",
+                        "axisLabel": "",
+                        "axisPlacement": "auto",
+                        "barAlignment": 0,
+                        "barWidthFactor": 1,
+                        "drawStyle": "bars",
+                        "fillOpacity": 100,
+                        "gradientMode": "none",
+                        "hideFrom": {
+                            "legend": false,
+                            "tooltip": false,
+                            "viz": false
+                        },
+                        "insertNulls": false,
+                        "lineInterpolation": "smooth",
+                        "lineWidth": 10,
+                        "pointSize": 10,
+                        "scaleDistribution": {
+                            "type": "linear"
+                        },
+                        "showPoints": "never",
+                        "showValues": false,
+                        "spanNulls": false,
+                        "stacking": {
+                            "group": "A",
+                            "mode": "none"
+                        },
+                        "thresholdsStyle": {
+                            "mode": "off"
+                        }
+                    },
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": 0
+                            }
+                        ]
+                    },
+                    "unit": "entries"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 5,
+                "w": 24,
+                "x": 0,
+                "y": 0
+            },
+            "id": 1,
+            "options": {
+                "legend": {
+                    "calcs": [],
+                    "displayMode": "list",
+                    "placement": "bottom",
+                    "showLegend": false
+                },
+                "tooltip": {
+                    "hideZeros": false,
+                    "mode": "single",
+                    "sort": "none"
+                }
+            },
+            "pluginVersion": "12.4.0-21024277089.patch2",
+            "targets": [
+                {
+                    "datasource": {
+                        "type": "loki",
+                        "uid": "${DS_MONITORING_CENTRAL LOGS}"
+                    },
+                    "direction": "backward",
+                    "editorMode": "builder",
+                    "expr": "sum(count_over_time({k8s_namespace_name=\"$Namespace\", k8s_pod_name=\"$Pod\", k8s_container_name=\"$Container\"} [$__auto]))",
+                    "legendFormat": "Total",
+                    "queryType": "range",
+                    "refId": "A"
+                }
+            ],
+            "title": "Logs",
+            "type": "timeseries"
+        },
+        {
+            "datasource": {
+                "type": "loki",
+                "uid": "${DS}"
+            },
+            "gridPos": {
+                "h": 27,
+                "w": 24,
+                "x": 0,
+                "y": 5
+            },
+            "id": 2,
+            "options": {
+                "dedupStrategy": "none",
+                "enableInfiniteScrolling": false,
+                "enableLogDetails": true,
+                "prettifyLogMessage": true,
+                "showCommonLabels": false,
+                "showControls": false,
+                "showLabels": false,
+                "showTime": true,
+                "sortOrder": "Descending",
+                "wrapLogMessage": false
+            },
+            "pluginVersion": "12.4.0-21024277089.patch2",
+            "targets": [
+                {
+                    "datasource": {
+                        "type": "loki",
+                        "uid": "${DS_MONITORING_CENTRAL LOGS}"
+                    },
+                    "direction": "backward",
+                    "editorMode": "builder",
+                    "expr": "{k8s_namespace_name=\"$Namespace\", k8s_pod_name=\"$Pod\", k8s_container_name=\"$Container\"}",
+                    "legendFormat": "{{k8s_pod_name}]",
+                    "queryType": "range",
+                    "refId": "A"
+                }
+            ],
+            "title": "Logs",
+            "type": "logs"
+        }
+    ],
+    "preload": false,
+    "schemaVersion": 42,
+    "tags": [],
+    "templating": {
+        "list": [
+            {
+                "current": {
+                    "text": {},
+                    "value": "$__all"
+                },
+                "label": "DS",
+                "name": "DS",
+                "options": [],
+                "query": "loki",
+                "refresh": 1,
+                "regex": "",
+                "type": "datasource"
+            },
+            {
+                "current": {
+                    "text": {},
+                    "value": "$__all"
+                },
+                "datasource": {
+                    "type": "loki",
+                    "uid": "${DS}"
+                },
+                "definition": "",
+                "description": "",
+                "label": "Namespace",
+                "name": "Namespace",
+                "options": [],
+                "query": {
+                    "label": "k8s_namespace_name",
+                    "refId": "LokiVariableQueryEditor-VariableQuery",
+                    "stream": "",
+                    "type": 1
+                },
+                "refresh": 1,
+                "regex": "",
+                "regexApplyTo": "value",
+                "sort": 1,
+                "type": "query"
+            },
+            {
+                "current": {
+                    "text": {},
+                    "value": "$__all"
+                },
+                "datasource": {
+                    "type": "loki",
+                    "uid": "${DS}"
+                },
+                "definition": "",
+                "description": "",
+                "includeAll": false,
+                "label": "Pod",
+                "name": "Pod",
+                "options": [],
+                "query": {
+                    "label": "k8s_pod_name",
+                    "refId": "LokiVariableQueryEditor-VariableQuery",
+                    "stream": "{k8s_namespace_name=\"$Namespace\", k8s_deployment_name=~\".*-account|.*-authorization|.*-ddp-streamer|.*presence|.*stream-hub|.*rocketchat.*\"}",
+                    "type": 1
+                },
+                "refresh": 1,
+                "regex": "",
+                "regexApplyTo": "value",
+                "sort": 1,
+                "type": "query"
+            },
+            {
+                "current": {
+                    "text": {},
+                    "value": "$__all"
+                },
+                "datasource": {
+                    "type": "loki",
+                    "uid": "${DS}"
+                },
+                "definition": "",
+                "description": "",
+                "includeAll": false,
+                "label": "Container",
+                "name": "Container",
+                "options": [],
+                "query": {
+                    "label": "k8s_container_name",
+                    "refId": "LokiVariableQueryEditor-VariableQuery",
+                    "stream": "{k8s_pod_name=\"$Pod\", k8s_namespace_name=~\"$Namespace\"}",
+                    "type": 1
+                },
+                "refresh": 1,
+                "regex": "",
+                "regexApplyTo": "value",
+                "sort": 1,
+                "type": "query"
+            }
+        ]
+    },
+    "time": {
+        "from": "now-15m",
+        "to": "now"
+    },
+    "timepicker": {},
+    "timezone": "browser",
+    "title": "Rocket.Chat Logs",
+    "uid": "rocketchat-logs",
+    "version": 3,
+    "weekStart": ""
+}
