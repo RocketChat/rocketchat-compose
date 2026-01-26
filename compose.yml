@@ -21,7 +21,7 @@ services:
     #   mongodb-init-container:
     #     condition: service_completed_successfully
     command:
-      - bash
+      - sh
       - -c
       - |
         echo "=====> Waiting for MongoDB (mongodb:27017) to be ready before starting Rocket.Chat...";
