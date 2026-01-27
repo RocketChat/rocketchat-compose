@@ -136,6 +136,45 @@ podman compose \
 
 ---
 
+### macOS Logging Configuration
+
+On macOS, Docker Desktop doesn't support the `journald` logging driver that's used by default in the compose files. The `mac-override.yml` file provides a macOS-specific override that changes all services to use the `json-file` logging driver instead.
+
+**Why use it?**
+- The default `journald` driver is only available on Linux systems with systemd
+- macOS Docker Desktop doesn't support `journald`, which will cause errors when starting services
+- The `json-file` driver is the standard alternative that works on all platforms
+
+**How to use it:**
+
+Include `mac-override.yml` in your compose command:
+
+```bash
+docker compose \
+  -f compose.monitoring.yml \
+  -f compose.traefik.yml \
+  -f compose.database.yml \
+  -f compose.yml \
+  -f mac-override.yml \
+  up -d
+```
+
+Or with Podman Compose:
+
+```bash
+podman-compose \
+  -f compose.monitoring.yml \
+  -f compose.traefik.yml \
+  -f compose.database.yml \
+  -f compose.yml \
+  -f mac-override.yml \
+  up -d
+```
+
+The override file will change the logging driver from `journald` to `json-file` for all services (Rocket.Chat, MongoDB, NATS, and their exporters) without modifying the original compose files.
+
+---
+
 ### Multiple servers
 When running multiple Rocket.Chat servers, you can configure Traefik to discover those servers and include them in load balancing by adding a variable in the `.env` file:
 
