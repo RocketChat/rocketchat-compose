@@ -1,0 +1,13 @@
+services:
+  drachtio:
+    image: drachtio/drachtio-server:latest
+    restart: always
+    expose:
+      - 9022
+      - "5060/udp"
+    environment:
+      DRACHTIO_ADMIN_TCP_PORT: 9022
+      DRACHTIO_SECRET: ${DRACHTIO_SECRET:?}
+      DRACHTIO_LOGLEVEL: ${DRACHTIO_LOGLEVEL:-info}
+      DRACHTIO_SOFIA_LOGLEVEL: ${DRACHTIO_SOFIA_LOGLEVEL:-3}
+    command: drachtio --contact "sip:*;transport=udp"
