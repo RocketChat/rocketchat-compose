@@ -1,0 +1,28 @@
+services:
+  rocketchat:
+    logging:
+      driver: "json-file"
+
+  nats:
+    logging:
+      driver: "json-file"
+
+  nats-exporter:
+    logging:
+      driver: "json-file"
+
+  mongodb-fix-permission-container:
+    logging:
+      driver: "json-file"
+
+  mongodb-init-container:
+    logging:
+      driver: "json-file"
+
+  mongodb:
+    logging:
+      driver: "json-file"
+
+  mongodb-exporter:
+    logging:
+      driver: "json-file"

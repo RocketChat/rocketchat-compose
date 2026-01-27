@@ -5,3 +5,5 @@ override-*
 override.*
 
 mongodb_vol/
+
+mongodb-backup/
