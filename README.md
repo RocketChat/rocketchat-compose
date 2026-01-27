@@ -142,4 +142,16 @@ When running multiple Rocket.Chat servers, you can configure Traefik to discover
 ```env
 ROCKETCHAT_BACKEND_SERVERS=rocketchat-1:3000,rocketchat-2:3000,rocketchat-3:3000
 ```
-
+### VoIP setup
+There is a quick way for rolling out a VoIP solution using Drachtio and FreeSwitch as a SIP proxy. To achieve this some network configurations are required. `compose.network.yml` defines a network private network called `rc_voip_private` for VoIP servers. Currently it uses subnet 172.28.0.0/16 and assigns static IP 172.28.0.10 and 172.28.0.11. If you would want to change this network configuration, add desired value for subnet and static ip addresses in that subnet to `freeswitch` and `drachtio` service. `compose.network.yml` also configures rocketchat service to have access to default and `rc_voip_private` network. It communicates with non VoIP services on default network and VoIP services on `rc_voip_private` network. Once the desired configuration changes are made, run
+```bash
+    docker compose \
+        -f compose.monitoring.yml \
+        -f compose.traefik.yml \
+        -f compose.database.yml \
+        -f compose.yml \
+        -f compose.voip.yml \
+        -f compose.network.yml \
+        up -d
+```
+to start the stack. Once the stack is running, do the necessary VoIP configurations using the static ips for FreeSwitch and Drachtio.
