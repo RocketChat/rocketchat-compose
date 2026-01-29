@@ -93,14 +93,9 @@ services:
 
         echo "files generated, keeping container alive to podman-compose detect it"
         tail -f /dev/null
-          
     volumes:
       - traefik_config:/traefik_config:z
     restart: "no"
-    logging:
-      driver: "journald"
-      options:
-        tag: "${COMPOSE_PROJECT_NAME:-rocketchat}#traefik-init#{{.Name}}"
 
   traefik:
     image: docker.io/traefik:${TRAEFIK_RELEASE:-v3.4}
@@ -150,9 +145,9 @@ services:
       #   retries: 5
       #   start_period: 30s
     logging:
-      driver: "journald"
-      options:
-        tag: "${COMPOSE_PROJECT_NAME:-rocketchat}#traefik#{{.Name}}"
+      driver: "json-file"
+    labels:
+      container_tag: "${COMPOSE_PROJECT_NAME:-rocketchat}#traefik"
 
 volumes:
   # this is for ssl shennanigans, users usually won't need to bother with it
