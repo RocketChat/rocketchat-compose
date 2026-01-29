@@ -1,4 +1,3 @@
-
 # Rocket.Chat Compose Files
 
 ## Important Note!
@@ -13,13 +12,14 @@ https://forums.rocket.chat/t/action-required-docker-compose-moving-from-bitnami-
 2. cd to the cloned dir: `cd rocketchat-compose`
 3. Copy the example environment file: `cp .env.example .env`
 4. Edit .env file and update values
-5. Start the stack: `docker compose -f compose.database.yml -f compose.monitoring.yml -f compose.traefik.yml -f compose.yml up -d`
+5. Start the stack: `docker compose -f compose.database.yml -f compose.monitoring.yml -f compose.traefik.yml -f compose.yml -f docker.yml up -d`
 
 You can access Rocket.Chat at: http://localhost
 
 You can login to Grafana at: http://grafana.localhost with the default credentials:
-* User: admin
-* Password: rc-admin
+
+- User: admin
+- Password: rc-admin
 
 ## Getting Started
 
@@ -31,9 +31,7 @@ git clone --depth 1 https://github.com/RocketChat/rocketchat-compose.git
 
 ---
 
-
 ### Docker/Podman Compose
-
 
 For deploying the recommended stack with Rocket.Chat, Traefik, MongoDB, NATS, and Prometheus for monitoring:
 
@@ -62,20 +60,21 @@ For deploying the recommended stack with Rocket.Chat, Traefik, MongoDB, NATS, an
      ```
 
 2. **Using Grafana as a Path instead of Subdomain:**
-  - Change the variables
-    ```env
-    # set this to empty
-    GRAFANA_DOMAIN=
-    # set this to you desired path without trailing slash
-    GRAFANA_PATH=/grafana
-    ```
-  - If you wan't to use subdomain
-    ```env
-    # set this to your subdomain
-    GRAFANA_DOMAIN=grafana.your-domain.com
-    # set this as empty
-    GRAFANA_PATH=
-    ```
+
+- Change the variables
+  ```env
+  # set this to empty
+  GRAFANA_DOMAIN=
+  # set this to you desired path without trailing slash
+  GRAFANA_PATH=/grafana
+  ```
+- If you wan't to use subdomain
+  ```env
+  # set this to your subdomain
+  GRAFANA_DOMAIN=grafana.your-domain.com
+  # set this as empty
+  GRAFANA_PATH=
+  ```
 
 3. **Start the stack:**
    - With Docker Compose:
@@ -85,6 +84,7 @@ For deploying the recommended stack with Rocket.Chat, Traefik, MongoDB, NATS, an
        -f compose.traefik.yml \
        -f compose.database.yml \
        -f compose.yml \
+       -f docker.yml \
        up -d
      ```
    - Or with Podman Compose:
@@ -94,31 +94,36 @@ For deploying the recommended stack with Rocket.Chat, Traefik, MongoDB, NATS, an
        -f compose.traefik.yml \
        -f compose.database.yml \
        -f compose.yml \
+       -f podman.yml \
        up -d
      ```
 
    This will launch all containers. Rocket.Chat will be available at [http://localhost](http://localhost), and Grafana at [http://grafana.localhost](http://grafana.localhost).
+
    > **Note:** If deploying to a custom domain, update `ROOT_URL` and related variables accordingly.
 
 4. **Stop the stack:**
-  - With Docker Compose:
-    ```bash
-    docker compose \
-        -f compose.monitoring.yml \
-        -f compose.traefik.yml \
-        -f compose.database.yml \
-        -f compose.yml \
-        down
-    ```
-  - Or with Podman Compose:
-     ```bash
-     podman compose \
-       -f compose.monitoring.yml \
-       -f compose.traefik.yml \
-       -f compose.database.yml \
-       -f compose.yml \
-       down
-     ```
+
+- With Docker Compose:
+  ```bash
+  docker compose \
+      -f compose.monitoring.yml \
+      -f compose.traefik.yml \
+      -f compose.database.yml \
+      -f compose.yml \
+      -f docker.yml \
+      down
+  ```
+- Or with Podman Compose:
+  ```bash
+  podman compose \
+    -f compose.monitoring.yml \
+    -f compose.traefik.yml \
+    -f compose.database.yml \
+    -f compose.yml \
+    -f podman.yml \
+    down
+  ```
 
 ---
 
@@ -133,13 +138,12 @@ podman compose \
   up -d
 ```
 
-
 ---
 
 ### Multiple servers
+
 When running multiple Rocket.Chat servers, you can configure Traefik to discover those servers and include them in load balancing by adding a variable in the `.env` file:
 
 ```env
 ROCKETCHAT_BACKEND_SERVERS=rocketchat-1:3000,rocketchat-2:3000,rocketchat-3:3000
 ```
-
