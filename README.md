@@ -33,6 +33,8 @@ git clone --depth 1 https://github.com/RocketChat/rocketchat-compose.git
 
 ### Docker/Podman Compose
 
+When deploying with Podman, it is required to enable the user-level Podman socket with `systemctl --user enable --now podman.socket`. Note that `sudo` is not used, as it should be enabled at the user level.
+
 For deploying the recommended stack with Rocket.Chat, Traefik, MongoDB, NATS, and Prometheus for monitoring:
 
 1. **Configure environment variables:**
