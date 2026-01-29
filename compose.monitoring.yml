@@ -56,7 +56,7 @@ services:
     command: -config.file=/etc/loki/config.yaml -config.expand-env=true
     user: "0"
     volumes:
-      - ./files/loki/config.yaml:/etc/loki/config.yaml
+      - ./files/loki/config.yaml:/etc/loki/config.yaml:z
       - loki_data:/data/loki:rw
     logging:
       driver: "json-file"
@@ -68,7 +68,7 @@ services:
     command: ["--config=/etc/otel-collector-config.yaml"]
     user: "0"
     volumes:
-      - ./files/opentelemetry/config.yaml:/etc/otel-collector-config.yaml:ro
+      - ./files/opentelemetry/config.yaml:/etc/otel-collector-config.yaml:z
     # volumes:
     #   - ./files/opentelemetry/config.yaml:/etc/otel-collector-config.yaml:ro
     #   - ${CONTAINER_LOGS_PATH:/var/lib/docker/containers}:/hostfs/storage:ro,z
@@ -98,7 +98,7 @@ services:
       container_tag: "${COMPOSE_PROJECT_NAME:-rocketchat}#grafana"
 
 volumes:
-  prometheus_tsdb: {driver: local}
-  prometheus_config: {driver: local}
-  grafana_data: {driver: local}
-  loki_data: {driver: local}
+  prometheus_tsdb: { driver: local }
+  prometheus_config: { driver: local }
+  grafana_data: { driver: local }
+  loki_data: { driver: local }
