@@ -1,0 +1,5 @@
+services:
+  opentelemetry-logs-collector:
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/lib/docker/containers:/hostfs/storage:ro

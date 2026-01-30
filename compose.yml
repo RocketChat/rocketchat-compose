@@ -5,6 +5,7 @@ services:
     labels:
       prometheus.io/scrape: "true"
       prometheus.io/port: ${METRICS_PORT:-9458}
+      container_tag: "${COMPOSE_PROJECT_NAME:-rocketchat}#rocketchat"
     environment:
       ROOT_URL: ${ROOT_URL:-http://localhost}
       PORT: ${PORT:-3000}
@@ -42,9 +43,7 @@ services:
       - "${BIND_IP:-0.0.0.0}:${HOST_PORT:-3000}:${PORT:-3000}"
       - "${BIND_IP:-0.0.0.0}:${METRICS_PORT:-9458}:${METRICS_PORT:-9458}"
     logging:
-      driver: "journald"
-      options:
-        tag: "${COMPOSE_PROJECT_NAME:-rocketchat}#rocketchat#{{.Name}}"
+      driver: "json-file"
     # healthcheck:
     #   test: ["CMD", "nc", "-zv", "-w", "10", "rocketchat", "${PORT:-3000}"]
     #   interval: 30s
