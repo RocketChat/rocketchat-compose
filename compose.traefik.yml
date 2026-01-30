@@ -94,7 +94,7 @@ services:
         echo "files generated, keeping container alive to podman-compose detect it"
         tail -f /dev/null
     volumes:
-      - traefik_config:/traefik_config:z
+      - traefik_config:/traefik_config:Z
     restart: "no"
 
   traefik:
@@ -136,8 +136,8 @@ services:
       - ${TRAEFIK_DASHBOARD_PORT:-8080}
       - ${TRAEFIK_HTTPS_PORT:-443}
     volumes:
-      - traefik_ssl:/letsencrypt:z
-      - traefik_config:/traefik_config:z
+      - traefik_ssl:/letsencrypt:Z
+      - traefik_config:/traefik_config:Z
       # healthcheck:
       #   test: ["CMD", "traefik", "healthcheck"]
       #   interval: 30s
