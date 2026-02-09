@@ -10,7 +10,7 @@
 # for rootful Podman compatibility, especially for log collection.
 #
 # Usage example:
-#   podman compose -f compose.monitoring.yml -f compose.traefik.yml -f compose.database.yml -f compose.yml -f podman-rootful.yml up -d
+#   podman-compose -f compose.monitoring.yml -f compose.traefik.yml -f compose.database.yml -f compose.yml -f podman-rootful.yml up -d
 #
 # For rootless mode, use podman.yml instead.
 #######################################################################

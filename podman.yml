@@ -1,3 +1,13 @@
+#######################################################################
+# podman.yml
+#
+# Compose file for running Rocket.Chat stack with Podman in rootless mode.
+#
+# This file configures additional security options and mounts required
+#
+# Usage example:
+#   podman-compose -f compose.monitoring.yml -f compose.traefik.yml -f compose.database.yml -f compose.yml -f podman.yml up -d
+#######################################################################
 services:
   opentelemetry-logs-collector:
     security_opt:
