@@ -32,7 +32,6 @@ services:
   nats-exporter:
     profiles:
       - database
-      - monitoring
   mongodb-fix-permission-container:
     profiles:
       - database
@@ -45,7 +44,6 @@ services:
   mongodb-exporter:
     profiles:
       - database
-      - monitoring
   prometheus:
     profiles:
       - monitoring
