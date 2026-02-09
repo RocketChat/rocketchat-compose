@@ -147,3 +147,13 @@ When running multiple Rocket.Chat servers, you can configure Traefik to discover
 ```env
 ROCKETCHAT_BACKEND_SERVERS=rocketchat-1:3000,rocketchat-2:3000,rocketchat-3:3000
 ```
+
+## Using docker.yml
+
+If you want to start all services and enable all profiles, use the following command:
+
+```bash
+docker compose -f docker.yml --profile '*' up -d
+```
+
+This will launch all containers defined in docker.yml and included compose files, enabling every profile (database, monitoring, traefik, etc).
