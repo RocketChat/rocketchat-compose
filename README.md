@@ -89,7 +89,7 @@ For deploying the recommended stack with Rocket.Chat, Traefik, MongoDB, NATS, an
        -f docker.yml \
        up -d
      ```
-   - Or with Podman Compose:
+   - Or with Podman Compose (rootless, recommended):
      ```bash
      podman compose \
        -f compose.monitoring.yml \
@@ -99,10 +99,20 @@ For deploying the recommended stack with Rocket.Chat, Traefik, MongoDB, NATS, an
        -f podman.yml \
        up -d
      ```
+   - If your Podman setup requires rootful mode, use:
+     ```bash
+     podman compose \
+       -f compose.monitoring.yml \
+       -f compose.traefik.yml \
+       -f compose.database.yml \
+       -f compose.yml \
+       -f podman-rootful.yml \
+       up -d
+     ```
 
-   This will launch all containers. Rocket.Chat will be available at [http://localhost](http://localhost), and Grafana at [http://grafana.localhost](http://grafana.localhost).
+This will launch all containers. Rocket.Chat will be available at [http://localhost](http://localhost), and Grafana at [http://grafana.localhost](http://grafana.localhost).
 
-   > **Note:** If deploying to a custom domain, update `ROOT_URL` and related variables accordingly.
+> **Note:** Rootless Podman is preferred for security and compatibility. Use rootful mode only if required by your environment. If deploying to a custom domain, update `ROOT_URL` and related variables accordingly.
 
 4. **Stop the stack:**
 
