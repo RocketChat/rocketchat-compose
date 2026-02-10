@@ -69,6 +69,8 @@ services:
     user: "0"
     volumes:
       - ./files/opentelemetry/config.yaml:/etc/otel-collector-config.yaml:z
+    logging:
+      driver: none
     # volumes:
     #   - ./files/opentelemetry/config.yaml:/etc/otel-collector-config.yaml:ro
     #   - ${CONTAINER_LOGS_PATH:/var/lib/docker/containers}:/hostfs/storage:ro,z
