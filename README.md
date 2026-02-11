@@ -12,7 +12,7 @@ https://forums.rocket.chat/t/action-required-docker-compose-moving-from-bitnami-
 2. cd to the cloned dir: `cd rocketchat-compose`
 3. Copy the example environment file: `cp .env.example .env`
 4. Edit .env file and update values
-5. Start the stack: `docker compose -f docker.yml --profile '*' up -d`
+5. Start the stack: `docker compose -f compose.monitoring.yml -f compose.traefik.yml -f compose.database.yml -f compose.yml -f docker.yml up -d`
 
 You can access Rocket.Chat at: http://localhost
 
@@ -81,7 +81,13 @@ For deploying the recommended stack with Rocket.Chat, Traefik, MongoDB, NATS, an
 3. **Start the stack:**
    - With Docker Compose:
      ```bash
-     docker compose -f docker.yml --profile '*' up -d
+     docker compose \
+       -f compose.monitoring.yml \
+       -f compose.traefik.yml \
+       -f compose.database.yml \
+       -f compose.yml \
+       -f docker.yml \
+       up -d
      ```
    - Or with Podman Compose (rootless, recommended):
      ```bash
@@ -147,13 +153,3 @@ When running multiple Rocket.Chat servers, you can configure Traefik to discover
 ```env
 ROCKETCHAT_BACKEND_SERVERS=rocketchat-1:3000,rocketchat-2:3000,rocketchat-3:3000
 ```
-
-## Using docker.yml
-
-If you want to start all services and enable all profiles, use the following command:
-
-```bash
-docker compose -f docker.yml --profile '*' up -d
-```
-
-This will launch all containers defined in docker.yml and included compose files, enabling every profile (database, monitoring, traefik, etc).
