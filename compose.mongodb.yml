@@ -7,10 +7,6 @@ services:
       - ${MONGODB_HOST_PATH:-mongodb_data}:/data/db:rw
     environment:
       MONGODB_USER_ID: ${MONGODB_USER_ID:-1001}
-    logging:
-      driver: "journald"
-      options:
-        tag: "${COMPOSE_PROJECT_NAME:-rocketchat}#mongodb-fix-permission-container#{{.Name}}"
     entrypoint: |
       sh -xc '
         owner="$(stat -c %u /data/db)";
@@ -36,9 +32,9 @@ services:
     volumes:
       - ${MONGODB_HOST_PATH:-mongodb_data}:/data/db:rw
     logging:
-      driver: "journald"
-      options:
-        tag: "${COMPOSE_PROJECT_NAME:-rocketchat}#mongodb-init-container#{{.Name}}"
+      driver: "json-file"
+    labels:
+      container_tag: "${COMPOSE_PROJECT_NAME:-rocketchat}#mongodb-init-container"
     entrypoint: |
       sh -xc '
         echo "=====> Waiting for MongoDB to be healthy before initiating replica set...";
@@ -83,9 +79,9 @@ services:
       MONGODB_ADVERTISED_HOSTNAME: ${MONGODB_ADVERTISED_HOSTNAME:-mongodb}
       ALLOW_EMPTY_PASSWORD: ${ALLOW_EMPTY_PASSWORD:-yes}
     logging:
-      driver: "journald"
-      options:
-        tag: "${COMPOSE_PROJECT_NAME:-rocketchat}#mongodb#{{.Name}}"
+      driver: "json-file"
+    labels:
+      container_tag: "${COMPOSE_PROJECT_NAME:-rocketchat}#mongodb"
     healthcheck:
       test:
         - CMD
@@ -110,10 +106,6 @@ services:
       - --mongodb.uri=${MONGODB_URI:-mongodb://mongodb:27017}
       - --collect-all
       - --compatible-mode
-    logging:
-      driver: "journald"
-      options:
-        tag: "${COMPOSE_PROJECT_NAME:-rocketchat}#mongodb-exporter#{{.Name}}"
 
 volumes:
   mongodb_data: { driver: local }
