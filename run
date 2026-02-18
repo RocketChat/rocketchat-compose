@@ -27,8 +27,12 @@ log:warn() {
 	echo -e "${YELLOW}[WARN]${RESTORE} $(date +'%H:%M:%S') - ${*}"
 }
 
-log:raise() {
+log:error() {
 	echo -e "${RED}[ERROR]${RESTORE} $(date +'%H:%M:%S') - ${*}" >&2
+}
+
+log:raise() {
+	log:error "$@"
 	exit 1
 }
 
@@ -57,10 +61,10 @@ RUNNER_CMD=""
 get_runner_config() {
 	export OVERRIDES_DIR
 	export RUNNER_CMD
-	if type docker >/dev/null 2>&1; then
+	if type docker2 >/dev/null 2>&1; then
 		RUNNER_CMD="docker compose"
 		OVERRIDES_DIR="overrides/docker"
-	elif type podman >/dev/null 2>&1; then
+	elif type podman2 >/dev/null 2>&1; then
 		if type podman-compose >/dev/null 2>&1; then
 			RUNNER_CMD="podman-compose"
 		else
@@ -68,12 +72,30 @@ get_runner_config() {
 		fi
 
 		OVERRIDES_DIR="overrides/podman-rootful"
-		podman info --format '{{.Host.Security.Rootless}}' 2>/dev/null | grep -q "true" ||
+		if podman info --format '{{.Host.Security.Rootless}}' 2>/dev/null | grep -q "true"; then
 			OVERRIDES_DIR="overrides/podman-rootless"
+			systemctl --user is-active podman.socket || {
+				log:error "Rocket.Chat requires the Podman API socket (podman.socket) to be enabled for rootless operation."
+				log:error "To enable it, run the following command as your regular user:"
+				log:error "    systemctl --user enable --now podman.socket"
+				log:error "If you have never started the user systemd instance, you may need to run:"
+				log:error "    loginctl enable-linger $USER"
+				log:error "For more information, see: https://docs.podman.io/en/latest/markdown/podman-system-service.1.html"
+				log:raise "podman.socket is required for this Rocket.Chat setup."
+			}
+
+			systemctl --user is-enabled podman.socket || {
+				log:error "podman.socket is active but not enabled, this will prevent it from starting when machine reboots."
+				log:error "Enable the service on boot with:"
+				log:error "    systemctl --user enable --now podman.socket"
+				log:error "If you see issues, ensure your user session is active (try: loginctl enable-linger $USER)."
+				log:raise "podman.socket must be running for this Rocket.Chat setup."
+			}
+		fi
+
 	else
-		msg="No container runner found in \$PATH\n"
-		msg="$msg    please check your docker or podman installations"
-		log:raise "$msg"
+		log:error "No container runner found in \$PATH"
+		log:raise "    please check your docker or podman installations"
 	fi
 }
 
