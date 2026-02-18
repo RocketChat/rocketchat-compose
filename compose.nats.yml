@@ -12,9 +12,10 @@ services:
     #   timeout: 10s
     #   retries: 10
     #   start_period: 30s
-    command: --http_port 8222
-    ports:
-      - "${NATS_BIND_IP:-127.0.0.1}:${NATS_PORT_NUMBER:-4222}:4222"
+    command: --http_port 8222 -js -sd /data
+    # In docker this won't have many replicas, so restart is complety data loss
+    volumes:
+      - nats_data:/data
     logging:
       driver: "journald"
       options:

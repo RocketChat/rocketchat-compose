@@ -1,0 +1,7 @@
+services:
+  opentelemetry-logs-collector:
+    security_opt:
+      - label=disable
+    volumes:
+      - ${XDG_RUNTIME_DIR}/podman/podman.sock:/var/run/docker.sock:Z
+      - ${HOME}/.local/share/containers/storage/overlay-containers:/hostfs/storage:Z

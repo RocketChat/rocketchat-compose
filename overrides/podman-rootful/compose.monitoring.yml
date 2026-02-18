@@ -1,0 +1,7 @@
+services:
+  opentelemetry-logs-collector:
+    security_opt:
+      - label=disable
+    volumes:
+      - /var/run/podman/podman.sock:/var/run/docker.sock:Z
+      - /var/lib/containers/storage/overlay-containers:/hostfs/storage:Z
