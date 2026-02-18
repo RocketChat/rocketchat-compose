@@ -1,0 +1,129 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+export VERBOSE
+VERBOSE=""
+# Color Definitions
+RESTORE=$(tput sgr0)
+RED=$(tput setaf 1)
+YELLOW=$(tput setaf 3)
+GREEN=$(tput setaf 2)
+CYAN=$(tput setaf 6)
+# Logging Functions
+log:info() {
+	echo -e "${GREEN}[INFO]${RESTORE} $(date +'%H:%M:%S') - $1"
+}
+
+log:debug() {
+	# Only prints if DEBUG environment variable is set
+	if [[ "${VERBOSE}" == "true" ]]; then
+		# debug will output to stderr, so we can log while capturing the stdout
+		# without breaking
+		echo -e "${CYAN}[DEBUG]${RESTORE} $(date +'%H:%M:%S') - ${*}" >&2
+	fi
+}
+
+log:warn() {
+	echo -e "${YELLOW}[WARN]${RESTORE} $(date +'%H:%M:%S') - ${*}"
+}
+
+log:raise() {
+	echo -e "${RED}[ERROR]${RESTORE} $(date +'%H:%M:%S') - ${*}" >&2
+	exit 1
+}
+
+# store the root dir as a variable
+here="$(dirname "$(readlink -f "${0}")")"
+
+# We use our own variable to avoid conflicting with COMPOSE_FILE, or COMPOSE_PROFILES
+# Older versions might not recognize it, so we try our best to avoid confusion
+ROCKETCHAT_COMPOSE_FILES=""
+
+add_compose_file() {
+	export ROCKETCHAT_COMPOSE_FILES
+	log:debug "Adding to compose files: ${1}"
+	ROCKETCHAT_COMPOSE_FILES="${ROCKETCHAT_COMPOSE_FILES} -f ${1}"
+}
+
+add_compose_file "${here}/compose.yml"
+add_compose_file "${here}/compose.mongodb.yml"
+add_compose_file "${here}/compose.nats.yml"
+add_compose_file "${here}/compose.monitoring.yml "
+add_compose_file "${here}/compose.traefik.yml"
+
+profiles() {
+	export ROCKETCHAT_COMPOSE_FILES
+	# reset ROCKETCHAT_COMPOSE_FILES and use the provided by the user
+	ROCKETCHAT_COMPOSE_FILES=""
+	profiles_string="$(echo "$1" | tr ',' '\n')"
+	while read -r profile; do
+		if [[ "${profile}" == "rocketchat" ]] || [[ "${profile}" == "rc" ]]; then
+			# keep rc name for compatibility reasons
+			file="${here}/compose.yml"
+		else
+			file="${here}/compose.${profile}.yml"
+		fi
+
+		test -f "${file}" ||
+			log:raise "Error loading profile ${profile}\n    ${file} not found "
+
+		add_compose_file "$file"
+	done <<<"$profiles_string"
+}
+
+podman() {
+	# we prefer using podman-compose if that the plugin used
+	if type podman-compose >/dev/null 2>&1; then
+		echo "podman-compose"
+	else
+		echo "podman compose"
+	fi
+}
+
+compose() {
+	local cmd
+	export ROCKETCHAT_COMPOSE_FILES
+	if type docker >/dev/null 2>&1; then
+		cmd="docker compose"
+	elif type podman >/dev/null 2>&1; then
+		cmd="$(podman)"
+	else
+		msg="No container runner found in \$PATH\n"
+		msg="$msg    please check your docker or podman installations"
+		log:raise "$msg"
+	fi
+
+	log:debug "Using compose files"
+	log:debug "${ROCKETCHAT_COMPOSE_FILES}"
+	log:debug "Running command:"
+	log:debug "${cmd} ${*}"
+	# we need the word spliting here, and it's safe because we validated previously
+	# shellcheck disable=SC2086
+	${cmd} ${ROCKETCHAT_COMPOSE_FILES} "$@"
+}
+
+for ((i = 1; i <= $#; )); do
+	arg="${!i}"
+	case "$arg" in
+	-v | --verbose)
+		VERBOSE=true
+		shift
+		;;
+	-vv | --extra-verbose)
+		set -x
+		shift
+		;;
+	-p | --profiles | --profile)
+		profiles "${2}"
+		shift 2
+		;;
+	compose)
+		shift
+		compose "$@"
+		shift "$#" # clear all args
+		;;
+	*)
+		log:raise "Invalid args ${*}"
+		;;
+	esac
+done
