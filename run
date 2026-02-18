@@ -144,9 +144,6 @@ compose() {
 	${RUNNER_CMD} ${ROCKETCHAT_COMPOSE_FILES} "$@"
 }
 
-# Run this before anything to setup vairables
-get_runner_config
-
 for ((i = 1; i <= $#; )); do
 	arg="${!i}"
 	case "$arg" in
@@ -164,6 +161,9 @@ for ((i = 1; i <= $#; )); do
 		;;
 	compose)
 		shift
+		# Run this before anything to setup vairables
+		get_runner_config
+
 		compose "$@"
 		shift "$#" # clear all args
 		;;
