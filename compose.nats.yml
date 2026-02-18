@@ -1,0 +1,40 @@
+services:
+  nats:
+    image: docker.io/nats:${NATS_VERSION:-2.11-alpine}
+    restart: always
+    expose:
+      - 4222
+      - 8222
+      - 6222
+    # healthcheck:
+    #   test: ["CMD", "nc", "-zv", "-w", "10", "nats", "4222"]
+    #   interval: 30s
+    #   timeout: 10s
+    #   retries: 10
+    #   start_period: 30s
+    command: --http_port 8222
+    ports:
+      - "${NATS_BIND_IP:-127.0.0.1}:${NATS_PORT_NUMBER:-4222}:4222"
+    logging:
+      driver: "journald"
+      options:
+        tag: "${COMPOSE_PROJECT_NAME:-rocketchat}#nats#{{.Name}}"
+
+  nats-exporter:
+    image: docker.io/natsio/prometheus-nats-exporter:${NATS_EXPORTER_VERSION:-0.17.3}
+    depends_on:
+      - nats
+    expose:
+      - 7777
+    command:
+      - -healthz
+      - -varz
+      - "http://nats:8222"
+    logging:
+      driver: "journald"
+      options:
+        tag: "${COMPOSE_PROJECT_NAME:-rocketchat}#nats-exporter#{{.Name}}"
+
+volumes:
+  nats_data:
+    driver: local

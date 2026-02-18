@@ -1,40 +1,4 @@
 services:
-  nats:
-    image: docker.io/nats:${NATS_VERSION:-2.11-alpine}
-    restart: always
-    expose:
-      - 4222
-      - 8222
-      - 6222
-    # healthcheck:
-    #   test: ["CMD", "nc", "-zv", "-w", "10", "nats", "4222"]
-    #   interval: 30s
-    #   timeout: 10s
-    #   retries: 10
-    #   start_period: 30s
-    command: --http_port 8222
-    ports:
-      - "${NATS_BIND_IP:-127.0.0.1}:${NATS_PORT_NUMBER:-4222}:4222"
-    logging:
-      driver: "journald"
-      options:
-        tag: "${COMPOSE_PROJECT_NAME:-rocketchat}#nats#{{.Name}}"
-
-  nats-exporter:
-    image: docker.io/natsio/prometheus-nats-exporter:${NATS_EXPORTER_VERSION:-0.17.3}
-    depends_on:
-      - nats
-    expose:
-      - 7777
-    command:
-      - -healthz
-      - -varz
-      - "http://nats:8222"
-    logging:
-      driver: "journald"
-      options:
-        tag: "${COMPOSE_PROJECT_NAME:-rocketchat}#nats-exporter#{{.Name}}"
-      
   mongodb-fix-permission-container:
     image: docker.io/mongodb/mongodb-community-server:${MONGODB_VERSION:-8.2}-ubi8
     restart: on-failure
@@ -86,7 +50,7 @@ services:
         mongosh "$$MONGODB_URI" --eval "rs.initiate({_id: \"$$MONGODB_REPLICA_SET_NAME\", members: [{ _id: 0, host: \"$$MONGODB_ADVERTISED_HOSTNAME:$$MONGODB_PORT_NUMBER\" }]})";
         echo "=====> Initiating ReplSet done...";
       '
-        
+
   mongodb:
     image: docker.io/mongodb/mongodb-community-server:${MONGODB_VERSION:-8.2}-ubi8
     restart: always
@@ -124,11 +88,11 @@ services:
         tag: "${COMPOSE_PROJECT_NAME:-rocketchat}#mongodb#{{.Name}}"
     healthcheck:
       test:
-      - CMD
-      - mongosh
-      - "mongodb://${MONGODB_ADVERTISED_HOSTNAME:-mongodb}:${MONGODB_PORT_NUMBER:-27017}/?directConnection=true"
-      - --eval
-      - "\"db.adminCommand('ping')\""
+        - CMD
+        - mongosh
+        - "mongodb://${MONGODB_ADVERTISED_HOSTNAME:-mongodb}:${MONGODB_PORT_NUMBER:-27017}/?directConnection=true"
+        - --eval
+        - '"db.adminCommand(''ping'')"'
       interval: 30s
       timeout: 10s
       retries: 10
@@ -152,4 +116,4 @@ services:
         tag: "${COMPOSE_PROJECT_NAME:-rocketchat}#mongodb-exporter#{{.Name}}"
 
 volumes:
-  mongodb_data: {driver: local}
+  mongodb_data: { driver: local }
