@@ -1,0 +1,19 @@
+services:
+  freeswitch:
+    image: docker.io/rocketchat/freeswitch:latest
+    restart: always
+    environment:
+      EXTERNAL_ADDRESS_FQDN: ${VOIP_DOMAIN:?}
+      FREESWITCH_PASSWORD: ${FREESWITCH_PASSWORD:-}
+      RTP_START_PORT: ${VOIP_RTP_START_PORT:-20000}
+      RTP_END_PORT: ${VOIP_RTP_END_PORT:-20046}
+      ACCEPT_EXTERNAL_CALLS: false
+      USE_LEGACY_ARCH: false
+      DRACHTIO_DOMAIN: ${DRACHTIO_DOMAIN:-drachtio}
+      DEBUG_MODE: ${VOIP_DEBUG_MODE:-false}
+      INTERNAL_NUMBER_EXPRESSION: ${VOIP_INTERNAL_NUMBER_EXPRESSION:-^(\d{4})$} # expression used to validate if a dialed number is a valid internal extension
+      INTERNAL_DIALPLAN_INTERNAL_NUMBER_BRIDGE_STRING: ${VOIP_INTERNAL_BRIDGE_STRING:-sofia/internal/$${dialed_extension}@$${domain_name}} # string used to bridge an internal call
+    expose:
+      - "5060/udp"
+    ports:
+      - ${VOIP_RTP_START_PORT:-20000}-${VOIP_RTP_END_PORT:-20046}:${VOIP_RTP_START_PORT:-20000}-${VOIP_RTP_END_PORT:-20046}/udp

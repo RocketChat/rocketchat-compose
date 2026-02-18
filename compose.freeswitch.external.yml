@@ -1,0 +1,12 @@
+services:
+  freeswitch:
+    environment:
+      ACCEPT_EXTERNAL_CALLS: true
+      EXTERNAL_CALLS_DOMAIN: ${VOIP_EXTERNAL_DOMAIN:?}
+      EXTERNAL_NUMBER_EXPRESSION: ${VOIP_OUTGOING_NUMBER_EXPRESSION:-^(\+?\d{5,})$} # expression used to identify external extensions on outgoing external calls; checked only if the internal number expression didn't match
+      EXTERNAL_TO_INTERNAL_NUMBER_EXPRESSION: ${VOIP_INCOMING_NUMBER_EXPRESSION:-${VOIP_INTERNAL_NUMBER_EXPRESSION:-^(\d{4})$}} # expression used to identify internal extensions on incoming external calls
+      PUBLIC_DIALPLAN_INTERNAL_NUMBER_BRIDGE_STRING: ${VOIP_INCOMING_BRIDGE_STRING:-${VOIP_INTERNAL_BRIDGE_STRING:-sofia/internal/$${dialed_extension}@$${domain_name}}} # string used to bridge an incoming call with an internal user
+      DEFAULT_DIALPLAN_EXTERNAL_NUMBER_BRIDGE_STRING: ${VOIP_OUTGOING_BRIDGE_STRING:-sofia/external/$${dialed_extension}@$${external_calls_domain}} # string used to bridge an outgoing call with an external user
+      SIP_EXTERNAL_INBOUND_ACL: "any_v4.auto"
+    ports:
+      - "5080:5080/udp"
