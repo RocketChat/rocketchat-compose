@@ -5,6 +5,7 @@ services:
     labels:
       prometheus.io/scrape: "true"
       prometheus.io/port: ${METRICS_PORT:-9458}
+      container_tag: "${COMPOSE_PROJECT_NAME:-rocketchat}#rocketchat"
     environment:
       ROOT_URL: ${ROOT_URL:-http://localhost}
       PORT: ${PORT:-3000}
@@ -42,9 +43,7 @@ services:
       - "${BIND_IP:-0.0.0.0}:${HOST_PORT:-3000}:${PORT:-3000}"
       - "${BIND_IP:-0.0.0.0}:${METRICS_PORT:-9458}:${METRICS_PORT:-9458}"
     logging:
-      driver: "journald"
-      options:
-        tag: "${COMPOSE_PROJECT_NAME:-rocketchat}#rocketchat#{{.Name}}"
+      driver: "json-file"
     # healthcheck:
     #   test: ["CMD", "nc", "-zv", "-w", "10", "rocketchat", "${PORT:-3000}"]
     #   interval: 30s
@@ -68,9 +67,9 @@ services:
     ports:
       - "${NATS_BIND_IP:-127.0.0.1}:${NATS_PORT_NUMBER:-4222}:4222"
     logging:
-      driver: "journald"
-      options:
-        tag: "${COMPOSE_PROJECT_NAME:-rocketchat}#nats#{{.Name}}"
+      driver: "json-file"
+    labels:
+      container_tag: "${COMPOSE_PROJECT_NAME:-rocketchat}#nats"
   nats-exporter:
     image: docker.io/natsio/prometheus-nats-exporter:${NATS_EXPORTER_VERSION:-0.17.3}
     depends_on:
@@ -81,10 +80,6 @@ services:
       - -healthz
       - -varz
       - "http://nats:8222"
-    logging:
-      driver: "journald"
-      options:
-        tag: "${COMPOSE_PROJECT_NAME:-rocketchat}#nats-exporter#{{.Name}}"
   mongodb-fix-permission-container:
     image: docker.io/mongodb/mongodb-community-server:${MONGODB_VERSION:-8.2}-ubi8
     restart: on-failure
@@ -93,10 +88,6 @@ services:
       - ${MONGODB_HOST_PATH:-mongodb_data}:/data/db:rw
     environment:
       MONGODB_USER_ID: ${MONGODB_USER_ID:-1001}
-    logging:
-      driver: "journald"
-      options:
-        tag: "${COMPOSE_PROJECT_NAME:-rocketchat}#mongodb-fix-permission-container#{{.Name}}"
     entrypoint: |
       sh -xc '
         owner="$(stat -c %u /data/db)";
@@ -122,10 +113,20 @@ services:
     volumes:
       - ${MONGODB_HOST_PATH:-mongodb_data}:/data/db:rw
     logging:
-      driver: "journald"
-      options:
-        tag: "${COMPOSE_PROJECT_NAME:-rocketchat}#mongodb-init-container#{{.Name}}"
-    entrypoint: "sh -xc '\n  echo \"=====> Waiting for MongoDB to be healthy before initiating replica set...\";\n  until mongosh \"$$MONGODB_URI\" --eval \"db.adminCommand(\\\"ping\\\")\" >/dev/null 2>&1; do\n    echo \"=====> MongoDB not ready yet, retrying in 5 seconds...\";\n    sleep 5;\n  done;\n  echo \"=====> Initiating ReplSet $$MONGODB_REPLICA_SET_NAME at $$MONGODB_ADVERTISED_HOSTNAME:$$MONGODB_PORT_NUMBER...\";\n  mongosh \"$$MONGODB_URI\" --eval \"rs.initiate({_id: \\\"$$MONGODB_REPLICA_SET_NAME\\\", members: [{ _id: 0, host: \\\"$$MONGODB_ADVERTISED_HOSTNAME:$$MONGODB_PORT_NUMBER\\\" }]})\";\n  echo \"=====> Initiating ReplSet done...\";\n'\n  \n"
+      driver: "json-file"
+    labels:
+      container_tag: "${COMPOSE_PROJECT_NAME:-rocketchat}#mongodb-init-container"
+    entrypoint: |
+      sh -xc '
+        echo "=====> Waiting for MongoDB to be healthy before initiating replica set...";
+        until mongosh "$$MONGODB_URI" --eval "db.adminCommand(\"ping\")" >/dev/null 2>&1; do
+          echo "=====> MongoDB not ready yet, retrying in 5 seconds...";
+          sleep 5;
+        done;
+        echo "=====> Initiating ReplSet $$MONGODB_REPLICA_SET_NAME at $$MONGODB_ADVERTISED_HOSTNAME:$$MONGODB_PORT_NUMBER...";
+        mongosh "$$MONGODB_URI" --eval "rs.initiate({_id: \"$$MONGODB_REPLICA_SET_NAME\", members: [{ _id: 0, host: \"$$MONGODB_ADVERTISED_HOSTNAME:$$MONGODB_PORT_NUMBER\" }]})";
+        echo "=====> Initiating ReplSet done...";
+      '
   mongodb:
     image: docker.io/mongodb/mongodb-community-server:${MONGODB_VERSION:-8.2}-ubi8
     restart: always
@@ -158,16 +159,16 @@ services:
       MONGODB_ADVERTISED_HOSTNAME: ${MONGODB_ADVERTISED_HOSTNAME:-mongodb}
       ALLOW_EMPTY_PASSWORD: ${ALLOW_EMPTY_PASSWORD:-yes}
     logging:
-      driver: "journald"
-      options:
-        tag: "${COMPOSE_PROJECT_NAME:-rocketchat}#mongodb#{{.Name}}"
+      driver: "json-file"
+    labels:
+      container_tag: "${COMPOSE_PROJECT_NAME:-rocketchat}#mongodb"
     healthcheck:
       test:
         - CMD
         - mongosh
         - "mongodb://${MONGODB_ADVERTISED_HOSTNAME:-mongodb}:${MONGODB_PORT_NUMBER:-27017}/?directConnection=true"
         - --eval
-        - "\"db.adminCommand('ping')\""
+        - '"db.adminCommand(''ping'')"'
       interval: 30s
       timeout: 10s
       retries: 10
@@ -184,10 +185,6 @@ services:
       - --mongodb.uri=${MONGODB_URI:-mongodb://mongodb:27017}
       - --collect-all
       - --compatible-mode
-    logging:
-      driver: "journald"
-      options:
-        tag: "${COMPOSE_PROJECT_NAME:-rocketchat}#mongodb-exporter#{{.Name}}"
   traefik-init:
     image: docker.io/alpine:latest
     entrypoint: sh
@@ -195,14 +192,96 @@ services:
       ROCKETCHAT_BACKEND_SERVERS: ${ROCKETCHAT_BACKEND_SERVERS:-rocketchat:3000}
     command:
       - -c
-      - "set -e\n# quote 'eof' to prevent variable expansion\nrm -rf /traefik_config/* || true\nmkdir -p /traefik_config/http /traefik_config/https\n# this should be idented so it works inside the heredoc concatenation later\ncat <<'EOF' > /traefik_config/services.tpl\n  services:\n    grafana:\n      loadBalancer:\n        servers:\n          - url: \"http://grafana:3000\"\n    rocketchat:\n      loadBalancer:\n        healthCheck:\n          path: /health\n          interval: 10s\n          timeout: 3s\n        servers:\nEOF\n\necho \"ROCKETCHAT_BACKEND_SERVERS $$ROCKETCHAT_BACKEND_SERVERS\"\n# append the server list to the services template\nfor server in $(echo $$ROCKETCHAT_BACKEND_SERVERS | tr \",\" \"\\n\" | tr -d \" \"); do\n  echo \"          - url: \\\"http://$$server\\\"\" >> /traefik_config/services.tpl\ndone\n\n\ncat <<'EOF' > /traefik_config/http/dynamic.yml\nhttp:\n  routers:\n    rocketchat:\n      entryPoints:\n        - http\n      service: rocketchat\n      rule: Host(`{{ env \"DOMAIN\" }}`) && PathPrefix(`/`)\n    grafana:\n      entryPoints:\n        - http\n      service: grafana\n      rule: |-\n        {{ if eq (env \"GRAFANA_DOMAIN\") \"\" }}\n          Host(`{{ env \"DOMAIN\" }}`) && PathPrefix(`{{ env \"GRAFANA_PATH\" }}`)\n        {{ else }}\n          Host(`{{ env \"GRAFANA_DOMAIN\" }}`)\n        {{ end }}\nEOF\n\ncat <<'EOF' > /traefik_config/https/dynamic.yml\nhttps:\n  address: \":443\"\n  http:\n    redirections:\n      entryPoint:\n        to: \"http\"\n        scheme: \"https\"\nhttp:\n  routers:\n    rocketchat:\n      entryPoints:\n        - https\n      service: rocketchat\n      rule: Host(`{{ env \"DOMAIN\" }}`)\n      tls:\n        certResolver: le\n    grafana:\n      entryPoints:\n        - https\n      rule: |\n        {{ if eq (env \"GRAFANA_DOMAIN\") \"\" }}\n          Host(`{{ env \"DOMAIN\" }}`) && PathPrefix(`{{ env \"GRAFANA_PATH\" }}`)\n        {{ else }}\n          Host(`{{ env \"GRAFANA_DOMAIN\" }}`)\n        {{ end }}\n      service: grafana\n      tls:\n        certResolver: le\nEOF\n\ncat /traefik_config/services.tpl >> /traefik_config/http/dynamic.yml\ncat /traefik_config/services.tpl >> /traefik_config/https/dynamic.yml\ncat /traefik_config/http/dynamic.yml\necho \"-------------------------\"\ncat /traefik_config/https/dynamic.yml\n\necho \"files generated, keeping container alive to podman-compose detect it\"\ntail -f /dev/null\n  "
+      - |-
+        set -e
+        # quote 'eof' to prevent variable expansion
+        rm -rf /traefik_config/* || true
+        mkdir -p /traefik_config/http /traefik_config/https
+        # this should be idented so it works inside the heredoc concatenation later
+        cat <<'EOF' > /traefik_config/services.tpl
+          services:
+            grafana:
+              loadBalancer:
+                servers:
+                  - url: "http://grafana:3000"
+            rocketchat:
+              loadBalancer:
+                healthCheck:
+                  path: /health
+                  interval: 10s
+                  timeout: 3s
+                servers:
+        EOF
+
+        echo "ROCKETCHAT_BACKEND_SERVERS $$ROCKETCHAT_BACKEND_SERVERS"
+        # append the server list to the services template
+        for server in $(echo $$ROCKETCHAT_BACKEND_SERVERS | tr "," "\n" | tr -d " "); do
+          echo "          - url: \"http://$$server\"" >> /traefik_config/services.tpl
+        done
+
+
+        cat <<'EOF' > /traefik_config/http/dynamic.yml
+        http:
+          routers:
+            rocketchat:
+              entryPoints:
+                - http
+              service: rocketchat
+              rule: Host(`{{ env "DOMAIN" }}`) && PathPrefix(`/`)
+            grafana:
+              entryPoints:
+                - http
+              service: grafana
+              rule: |-
+                {{ if eq (env "GRAFANA_DOMAIN") "" }}
+                  Host(`{{ env "DOMAIN" }}`) && PathPrefix(`{{ env "GRAFANA_PATH" }}`)
+                {{ else }}
+                  Host(`{{ env "GRAFANA_DOMAIN" }}`)
+                {{ end }}
+        EOF
+
+        cat <<'EOF' > /traefik_config/https/dynamic.yml
+        https:
+          address: ":443"
+          http:
+            redirections:
+              entryPoint:
+                to: "http"
+                scheme: "https"
+        http:
+          routers:
+            rocketchat:
+              entryPoints:
+                - https
+              service: rocketchat
+              rule: Host(`{{ env "DOMAIN" }}`)
+              tls:
+                certResolver: le
+            grafana:
+              entryPoints:
+                - https
+              rule: |
+                {{ if eq (env "GRAFANA_DOMAIN") "" }}
+                  Host(`{{ env "DOMAIN" }}`) && PathPrefix(`{{ env "GRAFANA_PATH" }}`)
+                {{ else }}
+                  Host(`{{ env "GRAFANA_DOMAIN" }}`)
+                {{ end }}
+              service: grafana
+              tls:
+                certResolver: le
+        EOF
+
+        cat /traefik_config/services.tpl >> /traefik_config/http/dynamic.yml
+        cat /traefik_config/services.tpl >> /traefik_config/https/dynamic.yml
+        cat /traefik_config/http/dynamic.yml
+        echo "-------------------------"
+        cat /traefik_config/https/dynamic.yml
+
+        echo "files generated, keeping container alive to podman-compose detect it"
+        tail -f /dev/null
     volumes:
-      - traefik_config:/traefik_config:z
+      - traefik_config:/traefik_config:Z
     restart: "no"
-    logging:
-      driver: "journald"
-      options:
-        tag: "${COMPOSE_PROJECT_NAME:-rocketchat}#traefik-init#{{.Name}}"
   traefik:
     image: docker.io/traefik:${TRAEFIK_RELEASE:-v3.4}
     restart: always
@@ -242,8 +321,8 @@ services:
       - ${TRAEFIK_DASHBOARD_PORT:-8080}
       - ${TRAEFIK_HTTPS_PORT:-443}
     volumes:
-      - traefik_ssl:/letsencrypt:z
-      - traefik_config:/traefik_config:z
+      - traefik_ssl:/letsencrypt:Z
+      - traefik_config:/traefik_config:Z
       # healthcheck:
       #   test: ["CMD", "traefik", "healthcheck"]
       #   interval: 30s
@@ -251,9 +330,9 @@ services:
       #   retries: 5
       #   start_period: 30s
     logging:
-      driver: "journald"
-      options:
-        tag: "${COMPOSE_PROJECT_NAME:-rocketchat}#traefik#{{.Name}}"
+      driver: "json-file"
+    labels:
+      container_tag: "${COMPOSE_PROJECT_NAME:-rocketchat}#traefik"
 volumes:
   mongodb_data:
     driver: local
