@@ -1,0 +1,174 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+export VERBOSE
+VERBOSE=""
+# Color Definitions
+RESTORE=$(tput sgr0)
+RED=$(tput setaf 1)
+YELLOW=$(tput setaf 3)
+GREEN=$(tput setaf 2)
+CYAN=$(tput setaf 6)
+# Logging Functions
+log:info() {
+	echo -e "${GREEN}[INFO]${RESTORE} $(date +'%H:%M:%S') - $1"
+}
+
+log:debug() {
+	# Only prints if DEBUG environment variable is set
+	if [[ "${VERBOSE}" == "true" ]]; then
+		# debug will output to stderr, so we can log while capturing the stdout
+		# without breaking
+		echo -e "${CYAN}[DEBUG]${RESTORE} $(date +'%H:%M:%S') - ${*}" >&2
+	fi
+}
+
+log:warn() {
+	echo -e "${YELLOW}[WARN]${RESTORE} $(date +'%H:%M:%S') - ${*}"
+}
+
+log:error() {
+	echo -e "${RED}[ERROR]${RESTORE} $(date +'%H:%M:%S') - ${*}" >&2
+}
+
+log:raise() {
+	log:error "$@"
+	exit 1
+}
+
+# store the root dir as a variable
+here="$(dirname "$(readlink -f "${0}")")"
+
+# We use our own variable to avoid conflicting with COMPOSE_FILE, or COMPOSE_PROFILES
+# Older versions might not recognize it, so we try our best to avoid confusion
+ROCKETCHAT_COMPOSE_FILES=""
+
+add_compose_file() {
+	export ROCKETCHAT_COMPOSE_FILES
+	log:debug "Adding to compose files: ${1}"
+	ROCKETCHAT_COMPOSE_FILES="${ROCKETCHAT_COMPOSE_FILES} -f ${1}"
+}
+
+add_compose_file "${here}/compose.yml"
+add_compose_file "${here}/compose.mongodb.yml"
+add_compose_file "${here}/compose.nats.yml"
+add_compose_file "${here}/compose.monitoring.yml "
+add_compose_file "${here}/compose.traefik.yml"
+
+OVERRIDES_DIR=""
+RUNNER_CMD=""
+
+get_runner_config() {
+	export OVERRIDES_DIR
+	export RUNNER_CMD
+	if type docker2 >/dev/null 2>&1; then
+		RUNNER_CMD="docker compose"
+		OVERRIDES_DIR="overrides/docker"
+	elif type podman2 >/dev/null 2>&1; then
+		if type podman-compose >/dev/null 2>&1; then
+			RUNNER_CMD="podman-compose"
+		else
+			RUNNER_CMD="podman compose"
+		fi
+
+		OVERRIDES_DIR="overrides/podman-rootful"
+		if podman info --format '{{.Host.Security.Rootless}}' 2>/dev/null | grep -q "true"; then
+			OVERRIDES_DIR="overrides/podman-rootless"
+			systemctl --user is-active podman.socket || {
+				log:error "Rocket.Chat requires the Podman API socket (podman.socket) to be enabled for rootless operation."
+				log:error "To enable it, run the following command as your regular user:"
+				log:error "    systemctl --user enable --now podman.socket"
+				log:error "If you have never started the user systemd instance, you may need to run:"
+				log:error "    loginctl enable-linger $USER"
+				log:error "For more information, see: https://docs.podman.io/en/latest/markdown/podman-system-service.1.html"
+				log:raise "podman.socket is required for this Rocket.Chat setup."
+			}
+
+			systemctl --user is-enabled podman.socket || {
+				log:error "podman.socket is active but not enabled, this will prevent it from starting when machine reboots."
+				log:error "Enable the service on boot with:"
+				log:error "    systemctl --user enable --now podman.socket"
+				log:error "If you see issues, ensure your user session is active (try: loginctl enable-linger $USER)."
+				log:raise "podman.socket must be running for this Rocket.Chat setup."
+			}
+		fi
+
+	else
+		log:error "No container runner found in \$PATH"
+		log:raise "    please check your docker or podman installations"
+	fi
+}
+
+profiles() {
+	export ROCKETCHAT_COMPOSE_FILES
+	export OVERRIDES_DIR
+	# reset ROCKETCHAT_COMPOSE_FILES and use the provided by the user
+	ROCKETCHAT_COMPOSE_FILES=""
+	profiles_string="$(echo "$1" | tr ',' '\n')"
+	while read -r profile; do
+		[[ -z "${profile}" ]] &&
+			continue
+
+		base_name="compose.${profile}.yml"
+
+		if [[ "${profile}" == "rocketchat" ]] || [[ "${profile}" == "rc" ]]; then
+			# keep rc name for compatibility reasons
+			base_name="compose.yml"
+		fi
+
+		file="${here}/${base_name}"
+
+		test -f "${file}" ||
+			log:raise "Error loading profile ${profile}\n    ${file} not found "
+
+		add_compose_file "$file"
+
+		override_file="${here}/${OVERRIDES_DIR}/${base_name}"
+		if test -f "${override_file}"; then
+			log:info "Found override for ${base_name} in: ${override_file}, loading it"
+			add_compose_file "$override_file"
+		fi
+
+	done <<<"$profiles_string"
+}
+
+compose() {
+	export ROCKETCHAT_COMPOSE_FILES
+
+	log:debug "Using compose files"
+	log:debug "${ROCKETCHAT_COMPOSE_FILES}"
+	log:debug "Running command:"
+	log:debug "${RUNNER_CMD} ${ROCKETCHAT_COMPOSE_FILES} ${*}"
+	# we need the word spliting here, and it's safe because we validated previously
+	# shellcheck disable=SC2086
+	${RUNNER_CMD} ${ROCKETCHAT_COMPOSE_FILES} "$@"
+}
+
+for ((i = 1; i <= $#; )); do
+	arg="${!i}"
+	case "$arg" in
+	-v | --verbose)
+		VERBOSE=true
+		shift
+		;;
+	-vv | --extra-verbose)
+		set -x
+		shift
+		;;
+	-p | --profiles | --profile)
+		profiles "${2}"
+		shift 2
+		;;
+	compose)
+		shift
+		# Run this before anything to setup vairables
+		get_runner_config
+
+		compose "$@"
+		shift "$#" # clear all args
+		;;
+	*)
+		log:raise "Invalid args ${*}"
+		;;
+	esac
+done

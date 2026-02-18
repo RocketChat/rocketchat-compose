@@ -1,35 +1,4 @@
 services:
-  nats:
-    image: docker.io/nats:${NATS_VERSION:-2.11-alpine}
-    restart: always
-    expose:
-      - 4222
-      - 8222
-      - 6222
-    # healthcheck:
-    #   test: ["CMD", "nc", "-zv", "-w", "10", "nats", "4222"]
-    #   interval: 30s
-    #   timeout: 10s
-    #   retries: 10
-    #   start_period: 30s
-    command: --http_port 8222
-    ports:
-      - "${NATS_BIND_IP:-127.0.0.1}:${NATS_PORT_NUMBER:-4222}:4222"
-    logging:
-      driver: "json-file"
-    labels:
-      container_tag: "${COMPOSE_PROJECT_NAME:-rocketchat}#nats"
-
-  nats-exporter:
-    image: docker.io/natsio/prometheus-nats-exporter:${NATS_EXPORTER_VERSION:-0.17.3}
-    depends_on:
-      - nats
-    expose:
-      - 7777
-    command:
-      - -healthz
-      - -varz
-      - "http://nats:8222"
   mongodb-fix-permission-container:
     image: docker.io/mongodb/mongodb-community-server:${MONGODB_VERSION:-8.2}-ubi8
     restart: on-failure
@@ -124,8 +93,6 @@ services:
       timeout: 10s
       retries: 10
       start_period: 30s
-    ports:
-      - "${MONGODB_BIND_IP:-127.0.0.1}:${MONGODB_PORT_NUMBER:-27017}:${MONGODB_PORT_NUMBER:-27017}"
 
   mongodb-exporter:
     image: docker.io/percona/mongodb_exporter:${MONGODB_EXPORTER_VERSION:-0.44.0}
@@ -139,4 +106,4 @@ services:
       - --compatible-mode
 
 volumes:
-  mongodb_data: {driver: local}
+  mongodb_data: { driver: local }
