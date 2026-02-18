@@ -27,9 +27,9 @@ services:
       #   retries: 10
       #   start_period: 10s
     logging:
-      driver: "journald"
-      options:
-        tag: "${COMPOSE_PROJECT_NAME:-rocketchat}#prometheus#{{.Name}}"
+      driver: "json-file"
+    labels:
+      container_tag: "${COMPOSE_PROJECT_NAME:-rocketchat}#prometheus"
   node-exporter:
     image: docker.io/prom/node-exporter:${NODE_EXPORTER_VERSION:-v1.9.1}
     restart: always
@@ -47,38 +47,34 @@ services:
     expose:
       - 9100
     logging:
-      driver: "journald"
-      options:
-        tag: "${COMPOSE_PROJECT_NAME:-rocketchat}#node-exporter#{{.Name}}"
+      driver: "json-file"
+    labels:
+      container_tag: "${COMPOSE_PROJECT_NAME:-rocketchat}#node-exporter"
 
   loki:
     image: docker.io/grafana/loki:3.6
     command: -config.file=/etc/loki/config.yaml -config.expand-env=true
     user: "0"
     volumes:
-      - ./files/loki/config.yaml:/etc/loki/config.yaml
+      - ./files/loki/config.yaml:/etc/loki/config.yaml:z
       - loki_data:/data/loki:rw
     logging:
-      driver: "journald"
-      options:
-        tag: "${COMPOSE_PROJECT_NAME:-rocketchat}#loki#{{.Name}}"
+      driver: "json-file"
+    labels:
+      container_tag: "${COMPOSE_PROJECT_NAME:-rocketchat}#loki"
 
   opentelemetry-logs-collector:
     image: docker.io/otel/opentelemetry-collector-contrib:0.143.0
     command: ["--config=/etc/otel-collector-config.yaml"]
     user: "0"
-    environment:
-      - HOST_PROC=/hostfs/proc
-      - HOST_SYS=/hostfs/sys
-      - HOST_ROOT=/hostfs
     volumes:
-      - ./files/opentelemetry/config.yaml:/etc/otel-collector-config.yaml:ro
-      # - /run/log/journal:/hostfs/run/log/journal:ro
-      - /:/hostfs/:z
+      - ./files/opentelemetry/config.yaml:/etc/otel-collector-config.yaml:z
     logging:
-      driver: "journald"
-      options:
-        tag: "${COMPOSE_PROJECT_NAME:-rocketchat}#opentelemetry-logs-collector#{{.Name}}"
+      driver: none
+    # volumes:
+    #   - ./files/opentelemetry/config.yaml:/etc/otel-collector-config.yaml:ro
+    #   - ${CONTAINER_LOGS_PATH:/var/lib/docker/containers}:/hostfs/storage:ro,z
+    #   - ${DOCKER_SOCK_PATH:/var/run/docker.sock}:/var/run/docker.sock:ro,z
 
   grafana:
     image: docker.io/grafana/grafana:${GRAFANA_VERSION:-12.0.2}
@@ -99,12 +95,12 @@ services:
       - GF_SERVER_SERVE_FROM_SUB_PATH=true
       - GF_SERVER_ROOT_URL=http://${GRAFANA_DOMAIN}${GRAFANA_PATH}/
     logging:
-      driver: "journald"
-      options:
-        tag: "${COMPOSE_PROJECT_NAME:-rocketchat}#grafana#{{.Name}}"
+      driver: "json-file"
+    labels:
+      container_tag: "${COMPOSE_PROJECT_NAME:-rocketchat}#grafana"
 
 volumes:
-  prometheus_tsdb: {driver: local}
-  prometheus_config: {driver: local}
-  grafana_data: {driver: local}
-  loki_data: {driver: local}
+  prometheus_tsdb: { driver: local }
+  prometheus_config: { driver: local }
+  grafana_data: { driver: local }
+  loki_data: { driver: local }

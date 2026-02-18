@@ -1,0 +1,20 @@
+## Usage
+
+# This file is intended to be used with Docker Compose:
+#
+#     docker compose -f docker.yml --profile '*' up -d
+#
+# This command will start all services defined in this file and included compose files, enabling all profiles.
+services:
+  opentelemetry-logs-collector:
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/lib/docker/containers:/hostfs/storage:ro
+
+  rocketchat:
+    healthcheck:
+      test: ["CMD", "nc", "-zv", "-w", "10", "rocketchat", "${PORT:-3000}"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
