@@ -57,7 +57,7 @@ services:
     user: "0"
     environment:
       MONGODB_REPLICA_SET_NAME: ${MONGODB_REPLICA_SET_NAME:-rs0}
-      MONGODB_PORT_NUMBER: ${MONGODB_PORT_NUMBER:-27017}
+      MONGODB_PORT_NUMBER: "27017"
       MONGODB_URI: ${MONGODB_URI:-mongodb://mongodb:27017/?directConnection=true}
       MONGODB_ADVERTISED_HOSTNAME: ${MONGODB_ADVERTISED_HOSTNAME:-mongodb}
     volumes:
@@ -117,7 +117,7 @@ services:
       test:
         - CMD
         - mongosh
-        - "mongodb://${MONGODB_ADVERTISED_HOSTNAME:-mongodb}:${MONGODB_PORT_NUMBER:-27017}/?directConnection=true"
+        - "mongodb://${MONGODB_ADVERTISED_HOSTNAME:-mongodb}:27017/?directConnection=true"
         - --eval
         - '"db.adminCommand(''ping'')"'
       interval: 30s
@@ -125,7 +125,7 @@ services:
       retries: 10
       start_period: 30s
     ports:
-      - "${MONGODB_BIND_IP:-127.0.0.1}:${MONGODB_PORT_NUMBER:-27017}:${MONGODB_PORT_NUMBER:-27017}"
+      - "${MONGODB_BIND_IP:-127.0.0.1}:${MONGODB_PORT_NUMBER:-27017}:27017"
 
   mongodb-exporter:
     image: docker.io/percona/mongodb_exporter:${MONGODB_EXPORTER_VERSION:-0.44.0}
