@@ -25,9 +25,22 @@ services:
     command:
       - -c
       - |
-        echo "=====> Waiting for MongoDB (mongodb:27017) to be ready before starting Rocket.Chat...";
+        protocol=$(echo $$MONGO_URL | awk -F'://' '{print $$1}')
+        if [ "$$protocol" = "mongodb+srv" ]; then
+          echo "=====> MongoDB is using SRV protocol, skipping healthcheck before attempting to start rocket.chat ...";
+          exec node main.js;
+        fi
+        host_port=$(echo $$MONGO_URL | awk -F/ '{print $$3}')
+        if echo $$host_port | grep -q @; then
+          host_port=$(echo $$host_port | awk -F@ '{print $$2}')
+        fi
+        echo "=====> host_port: $$host_port";
+        host=$${host_port%%:*}
+        port=$${host_port##*:}
+        port=$${port:-27017}
+        echo "=====> Waiting for MongoDB ($$host:$$port) to be ready before starting Rocket.Chat...";
         for i in $(seq 1 60); do
-          if nc -z mongodb 27017 >/dev/null 2>&1; then
+          if nc -z $$host $$port >/dev/null 2>&1; then
             echo "=====> MongoDB is up - starting Rocket.Chat";
             exec node main.js;
           fi;
