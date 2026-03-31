@@ -6,7 +6,7 @@
 # This file configures additional security options and mounts required
 #
 # Usage example:
-#   podman-compose -f compose.monitoring.yml -f compose.traefik.yml -f compose.database.yml -f compose.yml -f podman.yml up -d
+#   podman-compose -f compose.monitoring.yml -f compose.traefik.yml -f compose.database.yml -f compose.yml -f compose.nats.yml -f podman.yml up -d
 #######################################################################
 services:
   opentelemetry-logs-collector:

@@ -12,7 +12,7 @@ https://forums.rocket.chat/t/action-required-docker-compose-moving-from-bitnami-
 2. cd to the cloned dir: `cd rocketchat-compose`
 3. Copy the example environment file: `cp .env.example .env`
 4. Edit .env file and update values
-5. Start the stack: `docker compose -f compose.monitoring.yml -f compose.traefik.yml -f compose.database.yml -f compose.yml -f docker.yml up -d`
+5. Start the stack: `docker compose -f compose.monitoring.yml -f compose.traefik.yml -f compose.database.yml -f compose.yml -f compose.nats.yml -f docker.yml up -d`
 
 You can access Rocket.Chat at: http://localhost
 
@@ -86,6 +86,7 @@ For deploying the recommended stack with Rocket.Chat, Traefik, MongoDB, NATS, an
        -f compose.traefik.yml \
        -f compose.database.yml \
        -f compose.yml \
+       -f compose.nats.yml \
        -f docker.yml \
        up -d
      ```
@@ -96,6 +97,7 @@ For deploying the recommended stack with Rocket.Chat, Traefik, MongoDB, NATS, an
        -f compose.traefik.yml \
        -f compose.database.yml \
        -f compose.yml \
+       -f compose.nats.yml \
        -f podman.yml \
        up -d
      ```
@@ -106,6 +108,7 @@ For deploying the recommended stack with Rocket.Chat, Traefik, MongoDB, NATS, an
        -f compose.traefik.yml \
        -f compose.database.yml \
        -f compose.yml \
+       -f compose.nats.yml \
        -f podman-rootful.yml \
        up -d
      ```
@@ -127,6 +130,7 @@ This will launch all containers. Rocket.Chat will be available at [http://localh
     -f compose.traefik.yml \
     -f compose.database.yml \
     -f compose.yml \
+    -f compose.nats.yml \
     -f podman.yml \
     down
   ```
@@ -135,12 +139,15 @@ This will launch all containers. Rocket.Chat will be available at [http://localh
 
 ### Customizing the stack
 
-To exclude components (e.g., MongoDB or Prometheus), simply remove their compose files from the command. For example, to deploy Rocket.Chat with Traefik only:
+To exclude components (e.g., MongoDB or Prometheus), simply remove their compose files from the command. For **external MongoDB** or **external NATS**, see [docs/external-mongo.md](docs/external-mongo.md) and [docs/external-nats.md](docs/external-nats.md).
+
+For example, to deploy Rocket.Chat with Traefik only:
 
 ```bash
 podman compose \
   -f compose.traefik.yml \
   -f compose.yml \
+  -f compose.nats.yml \
   up -d
 ```
 
