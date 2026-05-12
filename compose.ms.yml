@@ -1,0 +1,22 @@
+x-common-environment: &x-common-environment
+  MONGO_URL: ${MONGO_URL:-mongodb://mongodb:27017/rocketchat?replicaSet=rs0}
+  TRANSPORTER: "${NATS_URL:-nats://nats:4222}"
+  MOLECULER_LOG_LEVEL: info
+  HEARTBEAT_INTERVAL: "10"
+  HEARTBEAT_TIMEOUT: "30"
+  RETRY_ENABLED: "yes"
+  PORT: 3000
+
+services:
+  ddp:
+    image: ${REGISTRY:-docker.io}/${OWNER:-rocketchat}/ddp-streamer-service:${RELEASE:-8.4.0}
+    environment: *x-common-environment
+  account:
+    image: ${REGISTRY:-docker.io}/${OWNER:-rocketchat}/account-service:${RELEASE:-8.4.0}
+    environment: *x-common-environment
+  authorization:
+    image: ${REGISTRY:-docker.io}/${OWNER:-rocketchat}/authorization-service:${RELEASE:-8.4.0}
+    environment: *x-common-environment
+  presence:
+    image: ${REGISTRY:-docker.io}/${OWNER:-rocketchat}/presence-service:${RELEASE:-8.4.0}
+    environment: *x-common-environment

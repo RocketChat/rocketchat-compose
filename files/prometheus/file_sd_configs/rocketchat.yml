@@ -3,3 +3,23 @@
   labels:
     job: rocketchat
     service: rocketchat
+- targets:
+    - ddp:9458
+  labels:
+    job: rocketchat
+    service: ddp
+- targets:
+    - authorization:9458
+  labels:
+    job: rocketchat
+    service: authorization
+- targets:
+    - account:9458
+  labels:
+    job: rocketchat
+    service: account
+- targets:
+    - presence:9458
+  labels:
+    job: rocketchat
+    service: presence

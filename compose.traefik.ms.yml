@@ -1,0 +1,198 @@
+services:
+  traefik-init:
+    image: docker.io/alpine:latest
+    entrypoint: sh
+    environment:
+      ROCKETCHAT_BACKEND_SERVERS: ${ROCKETCHAT_BACKEND_SERVERS:-rocketchat:3000}
+      DOMAIN: ${DOMAIN?DOMAIN is required}
+      GRAFANA_DOMAIN: ${GRAFANA_DOMAIN?GRAFANA_DOMAIN is required}
+    command:
+      - -c
+      - |-
+        set -e
+
+        apk update && apk add openssl --no-cache
+
+        echo "== generating ca /certs/ca.pem"
+
+        test -f /certs/ca.key || openssl genrsa -out /certs/ca.key 2048
+
+        test -f /certs/ca.pem || openssl req -x509 -new -nodes -key /certs/ca.key -sha256 -days 3650 -out /certs/ca.pem -subj "/CN=localca"
+
+        if ! [ -f "/certs/$${DOMAIN}.pem" ]; then
+
+          cat <<'EOF' > /ext
+        subjectAltName = DNS:$DOMAIN
+        EOF
+
+          test -f /certs/$$DOMAIN.key || openssl genrsa -out /certs/$$DOMAIN.key 2048
+
+          openssl req -new -key /certs/$$DOMAIN.key -out /certs/$$DOMAIN.csr -subj "/CN=$$DOMAIN"
+
+          openssl x509 -req -in /certs/$$DOMAIN.csr -CA /certs/ca.pem -CAkey /certs/ca.key -CAcreateserial -out /certs/$$DOMAIN.pem -days 825 -sha256 -extfile /ext;
+
+        fi
+
+        if ! test -f /certs/$${GRAFANA_DOMAIN}.pem; then
+
+          cat <<'EOF' > /ext
+        subjectAltName = DNS:$GRAFANA_DOMAIN
+        EOF
+
+          test -f /certs/$$GRAFANA_DOMAIN.key || openssl genrsa -out /certs/$$GRAFANA_DOMAIN.key 2048
+
+          openssl req -new -key /certs/$$GRAFANA_DOMAIN.key -out /certs/$$GRAFANA_DOMAIN.csr -subj "/CN=$$GRAFANA_DOMAIN"
+
+          openssl x509 -req -in /certs/$$GRAFANA_DOMAIN.csr -CA /certs/ca.pem -CAkey /certs/ca.key -CAcreateserial -out /certs/$$GRAFANA_DOMAIN.pem -days 825 -sha256 -extfile /ext;
+        
+        fi
+
+        # quote 'eof' to prevent variable expansion
+        rm -rf /traefik_config/* || true
+        mkdir -p /traefik_config/http /traefik_config/https
+        # this should be idented so it works inside the heredoc concatenation later
+        cat <<'EOF' > /traefik_config/services.tpl
+          services:
+            ddp:
+              loadBalancer:
+                servers:
+                  - url: "http://ddp:3000"
+            grafana:
+              loadBalancer:
+                servers:
+                  - url: "http://grafana:3000"
+            rocketchat:
+              loadBalancer:
+                healthCheck:
+                  path: /health
+                  interval: 10s
+                  timeout: 3s
+                servers:
+        EOF
+
+        echo "ROCKETCHAT_BACKEND_SERVERS $$ROCKETCHAT_BACKEND_SERVERS"
+        # append the server list to the services template
+        for server in $(echo $$ROCKETCHAT_BACKEND_SERVERS | tr "," "\n" | tr -d " "); do
+          echo "          - url: \"http://$$server\"" >> /traefik_config/services.tpl
+        done
+
+
+        cat <<'EOF' > /traefik_config/http/dynamic.yml
+        http:
+          routers:
+            ddp:
+              entrypoints:
+                - http
+              service: ddp
+              rule: Host(`{{ env "DOMAIN" }}`) && PathPrefix(`/websocket`)
+            rocketchat:
+              entryPoints:
+                - http
+              service: rocketchat
+              rule: Host(`{{ env "DOMAIN" }}`) && PathPrefix(`/`)
+            grafana:
+              entryPoints:
+                - http
+              service: grafana
+              rule: |-
+                {{ if eq (env "GRAFANA_DOMAIN") "" }}
+                  Host(`{{ env "DOMAIN" }}`) && PathPrefix(`{{ env "GRAFANA_PATH" }}`)
+                {{ else }}
+                  Host(`{{ env "GRAFANA_DOMAIN" }}`)
+                {{ end }}
+        EOF
+
+        cat <<'EOF' > /traefik_config/https/dynamic.yml
+        tls:
+          certificates:
+            - certFile: /certs/$DOMAIN.pem
+              keyFile: /certs/$DOMAIN.key
+            - certFile: /certs/$GRAFANA_DOMAIN.pem
+              keyFile: /certs/$GRAFANA_DOMAIN.key
+        http:
+          routers:
+            ddp:
+              tls: {}
+              entrypoints:
+                - https
+              service: ddp
+              rule: Host(`{{ env "DOMAIN" }}`) && PathPrefix(`/websocket`)
+            rocketchat:
+              tls: {}
+              entryPoints:
+                - https
+              service: rocketchat
+              rule: Host(`{{ env "DOMAIN" }}`)
+            grafana:
+              tls: {}
+              entryPoints:
+                - https
+              rule: Host(`{{ env "GRAFANA_DOMAIN" }}`)
+              service: grafana
+        EOF
+
+        cat /traefik_config/services.tpl >> /traefik_config/http/dynamic.yml
+        cat /traefik_config/services.tpl >> /traefik_config/https/dynamic.yml
+        cat /traefik_config/http/dynamic.yml
+        echo "-------------------------"
+        cat /traefik_config/https/dynamic.yml
+
+        echo "files generated, keeping container alive to podman-compose detect it"
+    volumes:
+      - ./traefik/certs:/certs:rw
+      - traefik_config:/traefik_config:Z
+    restart: "no"
+
+  traefik:
+    image: docker.io/traefik:${TRAEFIK_RELEASE:-v3.4}
+    restart: always
+    depends_on:
+      traefik-init:
+        condition: service_completed_successfully
+    environment:
+      DOMAIN: "${DOMAIN:-localhost}"
+      GRAFANA_DOMAIN: "${GRAFANA_DOMAIN-}"
+      GRAFANA_PATH: "${GRAFANA_PATH-/}"
+      TRAEFIK_PROTOCOL: "${TRAEFIK_PROTOCOL-}"
+    command:
+      - --api.insecure=${TRAEFIK_API_INSECURE:-false}
+      - --providers.docker=false
+      - --providers.docker.exposedbydefault=false
+      - --entrypoints.http.address=:${TRAEFIK_HTTP_PORT:-80}
+      - --entrypoints.https.address=:${TRAEFIK_HTTPS_PORT:-443}
+      - --entrypoints.metrics.address=:9096
+      - --metrics.prometheus=true
+      - --metrics.prometheus.entryPoint=metrics # Associate metrics with the 'metrics' entry point
+      - --metrics.prometheus.addEntryPointsLabels=true
+      - --metrics.prometheus.addRoutersLabels=true
+      - --metrics.prometheus.addServicesLabels=true
+      - --providers.file.filename=/traefik_config/${TRAEFIK_PROTOCOL}/dynamic.yml
+      - --providers.file.watch=true
+    ports:
+      - ${TRAEFIK_HTTP_PORT:-80}:${TRAEFIK_HTTP_PORT:-80}
+      - ${TRAEFIK_DASHBOARD_PORT:-8080}:8080
+      - ${TRAEFIK_HTTPS_PORT:-443}:${TRAEFIK_HTTPS_PORT:-443}
+    expose:
+      - 9096
+      - ${TRAEFIK_HTTP_PORT:-80}
+      - ${TRAEFIK_DASHBOARD_PORT:-8080}
+      - ${TRAEFIK_HTTPS_PORT:-443}
+    volumes:
+      - ./traefik/certs:/certs:ro
+      - traefik_ssl:/letsencrypt:Z
+      - traefik_config:/traefik_config:Z
+      # healthcheck:
+      #   test: ["CMD", "traefik", "healthcheck"]
+      #   interval: 30s
+      #   timeout: 30s
+      #   retries: 5
+      #   start_period: 30s
+    logging:
+      driver: "json-file"
+    labels:
+      container_tag: "${COMPOSE_PROJECT_NAME:-rocketchat}#traefik"
+
+volumes:
+  # this is for ssl shennanigans, users usually won't need to bother with it
+  traefik_ssl: {driver: local}
+  traefik_config: {driver: local}

@@ -1,6 +1,6 @@
 services:
   rocketchat:
-    image: ${IMAGE:-registry.rocket.chat/rocketchat/rocket.chat}:${RELEASE:-8.0.1}
+    image: ${REGISTRY:-registry.rocket.chat}/${OWNER:-rocketchat}/rocket.chat:${RELEASE:-8.4.0}
     restart: always
     labels:
       prometheus.io/scrape: "true"
@@ -16,7 +16,7 @@ services:
       OVERWRITE_SETTING_Prometheus_Enabled: true
       OVERWRITE_SETTING_Prometheus_Port: "${METRICS_PORT:-9458}"
       MONGO_URL: ${MONGO_URL:-mongodb://mongodb:27017/rocketchat?replicaSet=rs0}
-      TRANSPORTER: "${NATS_URL-monolith+nats://nats:4222}"
+      TRANSPORTER: "${NATS_URL:-nats://nats:4222}"
       INSTANCE_IP: "${INSTANCE_IP:-}"
     # depends_on:
     #   mongodb-init-container:
