@@ -153,3 +153,24 @@ When running multiple Rocket.Chat servers, you can configure Traefik to discover
 ```env
 ROCKETCHAT_BACKEND_SERVERS=rocketchat-1:3000,rocketchat-2:3000,rocketchat-3:3000
 ```
+
+---
+
+### Running multiple instances on the same host
+
+If you need to run a second independent Rocket.Chat stack on the same machine alongside an existing deployment, you must override all host ports in your `.env` to avoid conflicts. The minimum set of variables to change:
+
+```env
+# Rocket.Chat host port (default: 3000)
+HOST_PORT=21000
+
+# NATS host port (default: 4222)
+NATS_PORT_NUMBER=21001
+
+# MongoDB — must be consistent across all three variables
+MONGODB_PORT_NUMBER=27018
+MONGODB_URI=mongodb://mongodb:27018/?directConnection=true
+MONGO_URL=mongodb://mongodb:27018/rocketchat?replicaSet=rs0
+```
+
+> **Note:** `MONGODB_PORT_NUMBER` controls the port mongod listens on *inside* the container, not just the host mapping. All three MongoDB variables must reference the same port number or the replica set initialisation will fail.

@@ -96,7 +96,7 @@ services:
           owner="$(stat -c %u /data/db 2>/dev/null || true)";
           if [ "$$owner" = "$$MONGODB_USER_ID" ]; then
             echo "=====> /data/db ownership OK ($$owner) - starting MongoDB";
-            exec mongod --replSet "$$MONGODB_REPLICA_SET_NAME" --bind_ip_all;
+            exec mongod --replSet "$$MONGODB_REPLICA_SET_NAME" --bind_ip_all --port "$$MONGODB_PORT_NUMBER";
           fi;
           echo "=====> /data/db owner is '$$owner' (expected $$MONGODB_USER_ID), retrying in 5 seconds...";
           sleep 5;
