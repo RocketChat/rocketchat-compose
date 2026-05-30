@@ -16,6 +16,7 @@ services:
       OVERWRITE_SETTING_Prometheus_Enabled: true
       OVERWRITE_SETTING_Prometheus_Port: "${METRICS_PORT:-9458}"
       MONGO_URL: ${MONGO_URL:-mongodb://mongodb:27017/rocketchat?replicaSet=rs0}
+      MONGODB_PORT_NUMBER: ${MONGODB_PORT_NUMBER:-27017}
       TRANSPORTER: "${NATS_URL-monolith+nats://nats:4222}"
       INSTANCE_IP: "${INSTANCE_IP:-}"
     # depends_on:
@@ -25,7 +26,7 @@ services:
     command:
       - -c
       - |
-        echo "=====> Waiting for MongoDB (mongodb:27017) to be ready before starting Rocket.Chat...";
+        echo "=====> Waiting for MongoDB (mongodb:${MONGODB_PORT_NUMBER:-27017}) to be ready before starting Rocket.Chat...";
         for i in $(seq 1 60); do
           if nc -z mongodb 27017 >/dev/null 2>&1; then
             echo "=====> MongoDB is up - starting Rocket.Chat";
