@@ -1,0 +1,160 @@
+services:
+  traefik-init:
+    image: docker.io/alpine:latest
+    entrypoint: sh
+    environment:
+      ROCKETCHAT_BACKEND_SERVERS: ${ROCKETCHAT_BACKEND_SERVERS:-rocketchat:3000}
+    command:
+      - -c
+      - |-
+        set -e
+        # quote 'eof' to prevent variable expansion
+        rm -rf /traefik_config/* || true
+        mkdir -p /traefik_config/http /traefik_config/https
+        # this should be indented so it works inside the heredoc concatenation later
+        cat <<'EOF' > /traefik_config/services.tpl
+          services:
+            grafana:
+              loadBalancer:
+                servers:
+                  - url: "http://grafana:3000"
+            rocketchat:
+              loadBalancer:
+                healthCheck:
+                  path: /health
+                  interval: 10s
+                  timeout: 3s
+                servers:
+        EOF
+
+        echo "ROCKETCHAT_BACKEND_SERVERS $$ROCKETCHAT_BACKEND_SERVERS"
+        # append the server list to the services template
+        for server in $(echo $$ROCKETCHAT_BACKEND_SERVERS | tr "," "\n" | tr -d " "); do
+          echo "          - url: \"http://$$server\"" >> /traefik_config/services.tpl
+        done
+
+        # ---------------------------------------------------------------
+        # HTTP dynamic config — plain HTTP routers (no TLS)
+        # Traffic on port 80 is redirected to HTTPS at the entrypoint level
+        # ---------------------------------------------------------------
+        cat <<'EOF' > /traefik_config/http/dynamic.yml
+        http:
+          routers:
+            rocketchat:
+              entryPoints:
+                - http
+              service: rocketchat
+              rule: Host(`{{ env "DOMAIN" }}`) && PathPrefix(`/`)
+            grafana:
+              entryPoints:
+                - http
+              service: grafana
+              rule: |-
+                {{ if eq (env "GRAFANA_DOMAIN") "" }}
+                  Host(`{{ env "DOMAIN" }}`) && PathPrefix(`{{ env "GRAFANA_PATH" }}`)
+                {{ else }}
+                  Host(`{{ env "GRAFANA_DOMAIN" }}`)
+                {{ end }}
+        EOF
+
+        # ---------------------------------------------------------------
+        # HTTPS dynamic config — TLS routers using private cert files
+        # Cert files are mounted into the container at /certs/
+        # ---------------------------------------------------------------
+        cat <<'EOF' > /traefik_config/https/dynamic.yml
+        tls:
+          certificates:
+            - certFile: /certs/fullchain.pem
+              keyFile: /certs/privkey.pem
+        http:
+          routers:
+            rocketchat:
+              entryPoints:
+                - https
+              service: rocketchat
+              rule: Host(`{{ env "DOMAIN" }}`)
+              tls: {}
+            grafana:
+              entryPoints:
+                - https
+              rule: |
+                {{ if eq (env "GRAFANA_DOMAIN") "" }}
+                  Host(`{{ env "DOMAIN" }}`) && PathPrefix(`{{ env "GRAFANA_PATH" }}`)
+                {{ else }}
+                  Host(`{{ env "GRAFANA_DOMAIN" }}`)
+                {{ end }}
+              service: grafana
+              tls: {}
+        EOF
+
+        cat /traefik_config/services.tpl >> /traefik_config/http/dynamic.yml
+        cat /traefik_config/services.tpl >> /traefik_config/https/dynamic.yml
+        cat /traefik_config/http/dynamic.yml
+        echo "-------------------------"
+        cat /traefik_config/https/dynamic.yml
+
+        echo "files generated, keeping container alive so podman-compose can detect it"
+        tail -f /dev/null
+    volumes:
+      - traefik_config:/traefik_config:Z
+    restart: "no"
+
+  traefik:
+    image: docker.io/traefik:${TRAEFIK_RELEASE:-v3.4}
+    restart: always
+    depends_on:
+      - traefik-init
+    environment:
+      DOMAIN: "${DOMAIN:-localhost}"
+      GRAFANA_DOMAIN: "${GRAFANA_DOMAIN-}"
+      GRAFANA_PATH: "${GRAFANA_PATH-/}"
+      TRAEFIK_PROTOCOL: "${TRAEFIK_PROTOCOL-}"
+    command:
+      - --api.insecure=${TRAEFIK_API_INSECURE:-false}
+      - --providers.docker=false
+      - --providers.docker.exposedbydefault=false
+      - --entrypoints.http.address=:${TRAEFIK_HTTP_PORT:-80}
+      # Redirect all HTTP traffic to HTTPS at the entrypoint level
+      - --entrypoints.http.http.redirections.entryPoint.to=https
+      - --entrypoints.http.http.redirections.entryPoint.scheme=https
+      - --entrypoints.http.http.redirections.entryPoint.permanent=true
+      - --entrypoints.https.address=:${TRAEFIK_HTTPS_PORT:-443}
+      - --entrypoints.metrics.address=:9096
+      - --metrics.prometheus=true
+      - --metrics.prometheus.entryPoint=metrics
+      - --metrics.prometheus.addEntryPointsLabels=true
+      - --metrics.prometheus.addRoutersLabels=true
+      - --metrics.prometheus.addServicesLabels=true
+      # Load dynamic config from the file generated by traefik-init
+      - --providers.file.filename=/traefik_config/${TRAEFIK_PROTOCOL:-https}/dynamic.yml
+      - --providers.file.watch=true
+      # NOTE: ACME / Let's Encrypt is intentionally removed.
+      # TLS is handled by the private cert files mounted at /certs/.
+    ports:
+      - ${TRAEFIK_HTTP_PORT:-80}:${TRAEFIK_HTTP_PORT:-80}
+      - 127.0.0.1:${TRAEFIK_DASHBOARD_PORT:-8080}:8080
+      - ${TRAEFIK_HTTPS_PORT:-443}:${TRAEFIK_HTTPS_PORT:-443}
+    expose:
+      - 9096
+      - ${TRAEFIK_HTTP_PORT:-80}
+      - ${TRAEFIK_DASHBOARD_PORT:-8080}
+      - ${TRAEFIK_HTTPS_PORT:-443}
+    volumes:
+      - traefik_config:/traefik_config:Z
+      # Mount your private certificate and key (read-only)
+      # Place fullchain.pem and privkey.pem at this host path before starting
+      - /etc/traefik/certs:/certs:ro
+    healthcheck:
+      test: ["CMD", "traefik", "healthcheck"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 15s
+    logging:
+      driver: "json-file"
+    labels:
+      container_tag: "${COMPOSE_PROJECT_NAME:-rocketchat}#traefik"
+
+volumes:
+  traefik_config: {driver: local}
+  # traefik_ssl is removed — not needed without Let's Encrypt
